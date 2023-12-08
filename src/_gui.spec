@@ -18,6 +18,7 @@ a = Analysis(
     noarchive=False,
 )
 a.datas += Tree('./assets', prefix='assets')
+a.datas += Tree('../venv/Lib/site-packages/UnityPy', prefix='UnityPy')
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

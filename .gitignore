@@ -2,7 +2,8 @@ __pycache__/
 venv/
 tmp/
 .vscode/
-src/config.json
 src/__sandbox.py
 dist/
 translations/
+build/
+src/version.rc

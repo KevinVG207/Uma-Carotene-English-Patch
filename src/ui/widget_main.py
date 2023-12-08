@@ -10,6 +10,7 @@ import util
 import version
 import enum
 import sys
+import traceback
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
@@ -31,7 +32,10 @@ class Worker(QObject):
         self.func = func
 
     def run(self):
-        self.func()
+        try:
+            self.func()
+        except Exception:
+            traceback.print_exc()
         self.finished.emit()
 
 class patcher_widget(QWidget):

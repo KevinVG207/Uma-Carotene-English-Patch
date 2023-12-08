@@ -7,6 +7,28 @@ import shutil
 import zipfile
 from PIL import Image, ImageFilter
 import tqdm as _tqdm
+import sys
+
+relative_dir = os.path.abspath(os.getcwd())
+unpack_dir = relative_dir
+is_script = True
+if hasattr(sys, "_MEIPASS"):
+    unpack_dir = sys._MEIPASS
+    is_script = False
+    relative_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    os.chdir(relative_dir)
+is_debug = is_script
+
+def get_relative(relative_path):
+    """Gets the absolute path of a file relative to the executable's directory.
+    """
+    return os.path.join(relative_dir, relative_path)
+
+def get_asset(asset_path):
+    """Gets the absolute path of an asset relative to the unpack directory.
+    """
+    return os.path.join(unpack_dir, asset_path)
+
 
 TQDM_FORMAT = "{desc}: {percentage:3.0f}% |{bar}|"
 TQDM_NCOLS = 65
@@ -52,9 +74,6 @@ def load_json(path):
         with open(path, "r", encoding='utf-8') as f:
             return json.load(f)
     raise FileNotFoundError(f"Json not found: {path}")
-
-
-config = load_json("config.json") if os.path.exists("config.json") else load_json("src/config.json")
 
 
 def save_json(path, data):
@@ -104,29 +123,42 @@ def strings_numeric_key(item):
     return item
 
 
+def fetch_latest_github_release(username, repo):
+    url = f'https://api.github.com/repos/{username}/{repo}/releases'
+    r = requests.get(url)
+    r.raise_for_status()
+    data = r.json()
+    cur_version = None
+    for version in data:
+        if version['prerelease']:
+            continue
+        cur_version = version
+        break
+
+    if not cur_version:
+        raise Exception("No release found")
+    
+    return cur_version
+
+
 LATEST_DATA = None
 def get_latest_json():
     global LATEST_DATA
 
     if not LATEST_DATA:
-        url = config['tl_source']  # api.github.com/.../releases
-        r = requests.get(url)
-        r.raise_for_status()
-        data = r.json()
-        cur_version = None
-        for version in data:
-            if version['prerelease']:
-                continue
-            cur_version = version
-            break
-
-        if not cur_version:
-            raise Exception("No release found")
-        
-        LATEST_DATA = cur_version
+        LATEST_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotene-TL')
 
     return LATEST_DATA
 
+def download_file(url, path):
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(path, "wb") as f:
+            bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
+            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
+            for chunk in r.iter_content(chunk_size=8192):
+                progress_bar.update(len(chunk))
+                f.write(chunk)
 
 def download_latest():
     print("Downloading latest translation files")
@@ -149,25 +181,18 @@ def download_latest():
     os.makedirs('tmp', exist_ok=True)
     dl_path = os.path.join('tmp', dl_asset['name'])
 
-    with requests.get(dl_asset['browser_download_url'], stream=True) as r:
-        r.raise_for_status()
-        with open(dl_path, "wb") as f:
-            bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
-            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
-            for chunk in r.iter_content(chunk_size=8192):
-                progress_bar.update(len(chunk))
-                f.write(chunk)
+    download_file(dl_asset['browser_download_url'], dl_path)
 
-
-    if os.path.exists(TL_PREFIX):
+    final_path = get_relative(TL_PREFIX)
+    if os.path.exists(final_path):
         print("Deleting old files")
-        shutil.rmtree(TL_PREFIX)
-    os.makedirs(TL_PREFIX, exist_ok=True)
+        shutil.rmtree(final_path)
+    os.makedirs(final_path, exist_ok=True)
 
     print("Extracting")
 
     with zipfile.ZipFile(dl_path, 'r') as zip_ref:
-        zip_ref.extractall(TL_PREFIX)
+        zip_ref.extractall(final_path)
     
     shutil.rmtree('tmp')
 
@@ -175,8 +200,8 @@ def download_latest():
 
 def clean_download():
     print("Removing temporary files")
-    if os.path.exists(TL_PREFIX):
-        shutil.rmtree(TL_PREFIX)
+    if os.path.exists(get_relative(TL_PREFIX)):
+        shutil.rmtree(get_relative(TL_PREFIX))
     print("Done")
 
 def tqdm(*args, **kwargs):
@@ -185,3 +210,18 @@ def tqdm(*args, **kwargs):
     if not kwargs.get('ncols'):
         kwargs['ncols'] = TQDM_NCOLS
     return _tqdm.tqdm(*args, **kwargs)
+
+def get_game_folder():
+    with open(os.path.expandvars("%AppData%\dmmgameplayer5\dmmgame.cnf"), "r", encoding='utf-8') as f:
+        game_data = json.loads(f.read())
+    
+    if not game_data or not game_data.get('contents'):
+        return None
+    
+    path = None
+    for game in game_data['contents']:
+        if game.get('productId') == 'umamusume':
+            path = game.get('detail', {}).get('path', None)
+            break
+    
+    return path

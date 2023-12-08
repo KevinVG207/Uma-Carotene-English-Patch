@@ -326,13 +326,13 @@ def _import_hashed():
 def import_assembly():
     print("Importing assembly text...")
 
-    game_folder = util.config.get("game_folder")
+    game_folder = util.get_game_folder()
 
     if not game_folder:
-        raise ValueError("game_folder not set in config.json")
+        raise ValueError("Game folder could not be determined.")
     
     if not os.path.exists(game_folder):
-        raise FileNotFoundError(f"Game folder does not exist: {game_folder}")
+        raise FileNotFoundError(f"Game folder does not exist: {game_folder}.")
 
     lines = []
     lines += _import_jpdict()
@@ -349,9 +349,29 @@ def import_assembly():
     
     print(f"Imported {len(lines)} lines.")
 
+    print("Looking for latest mod version")
+    latest_data = util.fetch_latest_github_release("KevinVG207", "Uma-Carotenify")
+    print("Downloading patcher mod.")
+
+    dll_url = None
+    for asset in latest_data['assets']:
+        if asset['name'] == 'version.dll':
+            dll_url = asset['browser_download_url']
+            break
+    
+    if not dll_url:
+        raise Exception("version.dll not found in release assets.")
+    
+    dll_path = os.path.join(game_folder, "version.dll")
+
+    util.download_file(dll_url, dll_path)
+
+    print("Done.")
 
 
 def main(dl_latest=False):
+    print("=== Patching ===")
+
     if not os.path.exists(util.MDB_PATH):
         raise FileNotFoundError(f"MDB not found: {util.MDB_PATH}")
 
@@ -362,14 +382,14 @@ def main(dl_latest=False):
 
     import_mdb()
 
-    import_assets()
-
     import_assembly()
+
+    import_assets()
 
     if dl_latest:
         util.clean_download()
     
-    print("Patching complete!")
+    print("=== Patching complete! ===\n")
 
 def test():
     # import_assembly()

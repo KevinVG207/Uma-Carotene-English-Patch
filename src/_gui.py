@@ -1,10 +1,15 @@
+# Hack for fixing multiprocessing with PyInstaller
+import multiprocessing
+multiprocessing.freeze_support()
+
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIcon
 from ui.widget_main import patcher_widget
+import util
 
 def main():
     app = QApplication([])
-    app.setWindowIcon(QIcon('assets/icon.ico'))
+    app.setWindowIcon(QIcon(util.get_asset('assets/icon.ico')))
     widget = patcher_widget()
     widget.show()
     app.exec_()

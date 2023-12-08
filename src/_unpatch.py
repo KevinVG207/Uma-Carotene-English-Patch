@@ -49,32 +49,38 @@ def revert_assets():
 
 def revert_assembly():
     print("Reverting translations.txt")
-    game_folder = util.config.get("game_folder")
+    game_folder = util.get_game_folder()
 
     if not game_folder:
-        print("No game folder specified in config.json. Skipping.")
+        print("Game folder could not be determined. Skipping.")
         return
 
     if not os.path.exists(game_folder):
-        print("Game folder from config.json does not exist. Skipping.")
+        print(f"Game folder {game_folder} does not exist. Skipping.")
         return
 
     translations_path = os.path.join(game_folder, "translations.txt")
+    dll_path = os.path.join(game_folder, "version.dll")
 
     if not os.path.exists(translations_path):
         print("translations.txt does not exist. Skipping.")
-        return
+    else:
+        os.remove(translations_path)
 
-    os.remove(translations_path)
+    print("Deleting version.dll")
+    if not os.path.exists(dll_path):
+        print("version.dll does not exist. Skipping.")
+    else:
+        os.remove(dll_path)
 
 
 def main():
-    print("Reverting patch")
+    print("=== Unpatching ===")
     revert_mdb()
     revert_assets()
     revert_assembly()
     _patch.mark_mdb_untranslated()
-    print("Unpatch complete!")
+    print("=== Unpatch complete! ===\n")
 
 if __name__ == "__main__":
     main()
