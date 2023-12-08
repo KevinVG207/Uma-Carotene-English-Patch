@@ -29,7 +29,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Carotene Patcher',
+    name='CarotenePatcher',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
