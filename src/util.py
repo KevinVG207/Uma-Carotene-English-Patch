@@ -6,6 +6,10 @@ import numpy as np
 import shutil
 import zipfile
 from PIL import Image, ImageFilter
+import tqdm as _tqdm
+
+TQDM_FORMAT = "{desc}: {percentage:3.0f}% |{bar}|"
+TQDM_NCOLS = 65
 
 MDB_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\master\\master.mdb")
 META_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\meta")
@@ -99,21 +103,35 @@ def strings_numeric_key(item):
         return int(item)
     return item
 
+
+LATEST_DATA = None
+def get_latest_json():
+    global LATEST_DATA
+
+    if not LATEST_DATA:
+        url = config['tl_source']  # api.github.com/.../releases
+        r = requests.get(url)
+        r.raise_for_status()
+        data = r.json()
+        cur_version = None
+        for version in data:
+            if version['prerelease']:
+                continue
+            cur_version = version
+            break
+
+        if not cur_version:
+            raise Exception("No release found")
+        
+        LATEST_DATA = cur_version
+
+    return LATEST_DATA
+
+
 def download_latest():
     print("Downloading latest translation files")
-    url = config['tl_source']  # api.github.com/.../releases
-    r = requests.get(url)
-    r.raise_for_status()
-    data = r.json()
-    cur_version = None
-    for version in data:
-        if version['prerelease']:
-            continue
-        cur_version = version
-        break
 
-    if not cur_version:
-        raise Exception("No release found")
+    cur_version = get_latest_json()
     
     ver = cur_version['tag_name']
     
@@ -134,8 +152,12 @@ def download_latest():
     with requests.get(dl_asset['browser_download_url'], stream=True) as r:
         r.raise_for_status()
         with open(dl_path, "wb") as f:
+            bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
+            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
             for chunk in r.iter_content(chunk_size=8192):
+                progress_bar.update(len(chunk))
                 f.write(chunk)
+
 
     if os.path.exists(TL_PREFIX):
         print("Deleting old files")
@@ -152,7 +174,14 @@ def download_latest():
     print("Done")
 
 def clean_download():
-    print("Removing translation files")
+    print("Removing temporary files")
     if os.path.exists(TL_PREFIX):
         shutil.rmtree(TL_PREFIX)
     print("Done")
+
+def tqdm(*args, **kwargs):
+    if not kwargs.get('bar_format'):
+        kwargs['bar_format'] = TQDM_FORMAT
+    if not kwargs.get('ncols'):
+        kwargs['ncols'] = TQDM_NCOLS
+    return _tqdm.tqdm(*args, **kwargs)

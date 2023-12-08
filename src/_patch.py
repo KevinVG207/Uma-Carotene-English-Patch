@@ -42,9 +42,8 @@ def mark_mdb_untranslated():
         conn.commit()
 
 
-def is_mdb_translated():
+def _get_version_from_table():
     cur_ver = None
-
     with util.MDBConnection() as (conn, cursor):
         # Determine if carotene table exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carotene';")
@@ -57,7 +56,19 @@ def is_mdb_translated():
         if not row:
             return cur_ver
         
-        cur_ver = version.string_to_version(row[0])
+        cur_ver = row[0]
+    
+    return cur_ver
+
+
+def get_current_patch_ver():
+    cur_ver = _get_version_from_table()
+
+    if not cur_ver:
+        # Check for any remaining backup files.
+        asset_backups = glob.glob(util.DATA_PATH + "\\**\\*.bak", recursive=True)
+        if asset_backups:
+            cur_ver = 'partial'
 
     return cur_ver
 
@@ -66,7 +77,7 @@ def import_mdb():
     mdb_jsons = glob.glob(util.MDB_FOLDER + "\\**\\*.json")
 
     with util.MDBConnection() as (conn, cursor):
-        for mdb_json in mdb_jsons:
+        for mdb_json in util.tqdm(mdb_jsons, desc="Importing MDB"):
             path_segments = os.path.normpath(mdb_json).rsplit(".", 1)[0].split(os.sep)
             category = path_segments[-1]
             table = path_segments[-2]
@@ -74,7 +85,7 @@ def import_mdb():
             # Backup the table
             cursor.execute(f"CREATE TABLE IF NOT EXISTS {util.TABLE_BACKUP_PREFIX}{table} AS SELECT * FROM {table};")
 
-            print(f"Importing {table} {category}")
+            # print(f"Importing {table} {category}")
             data = util.load_json(mdb_json)
 
             for index, entry in data.items():
@@ -182,7 +193,7 @@ def import_textures(texture_asset_metadatas):
     print(f"Replacing {len(texture_asset_metadatas)} textures.")
 
     with Pool() as pool:
-        _ = list(tqdm.tqdm(pool.imap_unordered(_import_texture, texture_asset_metadatas, chunksize=16), total=len(texture_asset_metadatas), desc="Importing textures"))
+        _ = list(util.tqdm(pool.imap_unordered(_import_texture, texture_asset_metadatas, chunksize=16), total=len(texture_asset_metadatas), desc="Importing textures"))
 
 
 def _import_story(story_data):
@@ -243,7 +254,7 @@ def _import_story(story_data):
 def import_stories(story_datas):
     #TODO: Increase chunk size (maybe 16?) when more stories are added.
     with Pool() as pool:
-        _ = list(tqdm.tqdm(pool.imap_unordered(_import_story, story_datas, chunksize=2), total=len(story_datas), desc="Importing stories"))
+        _ = list(util.tqdm(pool.imap_unordered(_import_story, story_datas, chunksize=2), total=len(story_datas), desc="Importing stories"))
 
     # print(f"Replacing {len(story_datas)} stories.")
     # for story_data in story_datas:
@@ -255,7 +266,7 @@ def import_assets():
     jsons = glob.glob(util.ASSETS_FOLDER + "\\**\\*.json", recursive=True)
 
     with Pool() as pool:
-        results = list(tqdm.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for textures"))
+        results = list(util.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for textures"))
 
     # asset_dict = {result[0]: result[1] for result in results if result[0]}
     asset_dict = {}
@@ -357,6 +368,8 @@ def main(dl_latest=False):
 
     if dl_latest:
         util.clean_download()
+    
+    print("Patching complete!")
 
 def test():
     # import_assembly()

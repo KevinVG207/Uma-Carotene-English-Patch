@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>401</width>
-    <height>349</height>
+    <width>461</width>
+    <height>231</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,8 +18,8 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>401</width>
-    <height>349</height>
+    <width>221</width>
+    <height>131</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -31,8 +31,8 @@
   <widget class="QLabel" name="lbl_patch_status_indicator">
    <property name="geometry">
     <rect>
-     <x>110</x>
-     <y>120</y>
+     <x>140</x>
+     <y>10</y>
      <width>21</width>
      <height>20</height>
     </rect>
@@ -59,8 +59,8 @@
   <widget class="QLabel" name="lbl_patch_status_2">
    <property name="geometry">
     <rect>
-     <x>140</x>
-     <y>120</y>
+     <x>170</x>
+     <y>10</y>
      <width>151</width>
      <height>21</height>
     </rect>
@@ -69,40 +69,24 @@
     <string notr="true">Unpatched</string>
    </property>
   </widget>
-  <widget class="QLabel" name="lbl_contribute">
-   <property name="geometry">
-    <rect>
-     <x>110</x>
-     <y>210</y>
-     <width>181</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string notr="true">Contribute</string>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignCenter</set>
-   </property>
-  </widget>
   <widget class="QPushButton" name="btn_revert">
    <property name="geometry">
     <rect>
-     <x>210</x>
-     <y>150</y>
+     <x>240</x>
+     <y>70</y>
      <width>83</width>
      <height>31</height>
     </rect>
    </property>
    <property name="text">
-    <string notr="true">Revert</string>
+    <string notr="true">Unpatch</string>
    </property>
   </widget>
   <widget class="QPushButton" name="btn_patch">
    <property name="geometry">
     <rect>
-     <x>110</x>
-     <y>150</y>
+     <x>140</x>
+     <y>70</y>
      <width>83</width>
      <height>31</height>
     </rect>
@@ -111,103 +95,36 @@
     <string notr="true">Patch</string>
    </property>
   </widget>
-  <widget class="QLabel" name="lbl_update_indicator">
-   <property name="geometry">
-    <rect>
-     <x>110</x>
-     <y>30</y>
-     <width>20</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
-   </property>
-   <property name="minimumSize">
-    <size>
-     <width>20</width>
-     <height>20</height>
-    </size>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">background-color: rgb(255, 0, 0);</string>
-   </property>
-   <property name="text">
-    <string notr="true"/>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_update_text">
+  <widget class="QLabel" name="lbl_patch_status_3">
    <property name="geometry">
     <rect>
      <x>140</x>
-     <y>30</y>
-     <width>142</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
-   </property>
-   <property name="text">
-    <string notr="true">No update available</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="btn_commit">
-   <property name="geometry">
-    <rect>
-     <x>220</x>
-     <y>240</y>
-     <width>81</width>
-     <height>31</height>
+     <y>40</y>
+     <width>181</width>
+     <height>21</height>
     </rect>
    </property>
    <property name="text">
-    <string notr="true">Commit Edits</string>
+    <string notr="true">Install v0.0.1 now!</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="btn_update">
+  <widget class="QPlainTextEdit" name="plainTextEdit">
    <property name="geometry">
     <rect>
-     <x>110</x>
-     <y>60</y>
-     <width>81</width>
-     <height>31</height>
+     <x>10</x>
+     <y>110</y>
+     <width>441</width>
+     <height>111</height>
     </rect>
    </property>
-   <property name="text">
-    <string notr="true">Update</string>
+   <property name="readOnly">
+    <bool>true</bool>
    </property>
-  </widget>
-  <widget class="QPushButton" name="btn_index">
-   <property name="geometry">
-    <rect>
-     <x>100</x>
-     <y>240</y>
-     <width>101</width>
-     <height>31</height>
-    </rect>
+   <property name="plainText">
+    <string/>
    </property>
-   <property name="text">
-    <string notr="true">Index Game Text</string>
-   </property>
-  </widget>
-  <widget class="Line" name="line">
-   <property name="geometry">
-    <rect>
-     <x>100</x>
-     <y>200</y>
-     <width>201</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
+   <property name="placeholderText">
+    <string notr="true"/>
    </property>
   </widget>
  </widget>

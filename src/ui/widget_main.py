@@ -1,138 +1,185 @@
+import typing
 from PyQt5.QtCore import *
+from PyQt5.QtCore import QObject
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtWidgets import QWidget
-import _import
-import _revert
-import _update_local
-import _prepare_release
+import _patch
+import _unpatch
+import util
 import version
+import enum
+import sys
 
-class Ui_widget_main(QWidget):
+class PatchStatus(enum.Enum):
+    Unpatched = ['Unpatched', 'red']
+    Patched = ['Patched {}', '#00ff00']
+    Outdated = ['Outdated {}', 'orange']
+    Partial = ['Remnants found, please reapply', 'yellow']
+
+class Stream(QObject):
+    newText = pyqtSignal(str)
+
+    def write(self, text):
+        self.newText.emit(str(text))
+
+class Worker(QObject):
+    finished = pyqtSignal()
+
+    def __init__(self, func, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.func = func
+
+    def run(self):
+        self.func()
+        self.finished.emit()
+
+class patcher_widget(QWidget):
     def __init__(self, *args, base_widget=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.base_widget = base_widget
+        self.background_thread = False
 
-        self.setupUi(self)
+        self.setupUi()
         self.setFixedSize(self.size())
 
-    def check_patched(self):
-        cur_ver = _import.is_mdb_translated()
-        if cur_ver:
-            self.lbl_patch_status_indicator.setStyleSheet(u"background-color: rgb(0, 170, 0);")
-            self.lbl_patch_status_2.setText(f"Patched with {version.version_to_string(cur_ver)}")
+        self.pipe_output()
+        self.update_patch_status()
+    
+    def update_patch_status(self):
+        current_version = _patch.get_current_patch_ver()
+        latest_version_data = util.get_latest_json()
+
+        if not current_version:
+            patch_status = PatchStatus.Unpatched
+        elif current_version == 'partial':
+            patch_status = PatchStatus.Partial
         else:
-            self.lbl_patch_status_indicator.setStyleSheet(u"background-color: rgb(255, 0, 0);")
-            self.lbl_patch_status_2.setText(u"Unpatched")
+            cur_ver = version.string_to_version(current_version)
+            latest_ver = version.string_to_version(latest_version_data['tag_name'])
+
+            if latest_ver > cur_ver:
+                patch_status = PatchStatus.Outdated
+            else:
+                patch_status = PatchStatus.Patched
+        
+        patch_text, patch_color = patch_status.value
+        if '{}' in patch_text:
+            patch_text = patch_text.format(current_version)
+
+        self.lbl_patch_status_indicator.setStyleSheet(f"background-color: {patch_color};")
+
+        self.lbl_patch_status_2.setText(patch_text)
+
+
+        if patch_status == PatchStatus.Unpatched:
+            self.btn_patch.setText(u"Patch")
+        
+        elif patch_status in (PatchStatus.Patched, PatchStatus.Partial):
+            self.btn_patch.setText(u"Reapply")
+        
+        elif patch_status == PatchStatus.Outdated:
+            self.btn_patch.setText(u"Update")
     
-    def index_clicked(self):
-        self.base_widget.refresh_widgets(_update_local.main)
-        self.check_patched()
+        if patch_status == PatchStatus.Unpatched:
+            self.lbl_patch_status_3.setText(f"Install {latest_version_data['tag_name']} now!")
+        elif patch_status == PatchStatus.Patched:
+            self.lbl_patch_status_3.setText(f"Latest version is installed!")
+        elif patch_status == PatchStatus.Outdated:
+            self.lbl_patch_status_3.setText(f"<b>Update to {latest_version_data['tag_name']} now!</b>")
+        elif patch_status == PatchStatus.Partial:
+            self.lbl_patch_status_3.setText(f"Your patch is incomplete, possibly due to a game update.")
+
+
+    def pipe_output(self):
+        sys.stdout = Stream(newText=self.onUpdateText)
+        sys.stderr = Stream(newText=self.onUpdateText)
     
-    def commit_clicked(self):
-        self.base_widget.refresh_widgets(_prepare_release.main)
+    def onUpdateText(self, text):
+        self.plainTextEdit.moveCursor(QTextCursor.End)
+        self.plainTextEdit.insertPlainText(text)
+        self.plainTextEdit.moveCursor(QTextCursor.End)
+    
+    def clean_thread(self):
+        self.background_thread = False
+        self.btn_patch.setEnabled(True)
+        self.btn_revert.setEnabled(True)
 
-    def patch_clicked(self):
-        self.setCursor(Qt.WaitCursor)
-        _import.main()
-        self.check_patched()
-        self.unsetCursor()
+    def try_start_thread(self, func):
+        if self.background_thread:
+            return
+        
+        self.btn_patch.setEnabled(False)
+        self.btn_revert.setEnabled(False)
+        
+        self.background_thread = True
+        self.thread_ = QThread()
+        self.worker = Worker(func)
+        
+        self.worker.moveToThread(self.thread_)
+        self.thread_.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread_.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread_.finished.connect(self.thread_.deleteLater)
+        self.thread_.finished.connect(self.clean_thread)
+        self.thread_.finished.connect(self.update_patch_status)
+        self.thread_.start()
 
-    def revert_clicked(self):
-        self.setCursor(Qt.WaitCursor)
-        _revert.main()
-        self.check_patched()
-        self.unsetCursor()
+    def patch(self):
+        self.try_start_thread(lambda: _patch.main(dl_latest=True))
+    
+    def unpatch(self):
+        self.try_start_thread(lambda: _unpatch.main())
 
-    def setupUi(self, widget_main):
-        if not widget_main.objectName():
-            widget_main.setObjectName(u"widget_main")
-        widget_main.resize(401, 349)
+    def setupUi(self):
+        if not self.objectName():
+            self.setObjectName(u"widget_main")
+        self.resize(461, 231)
         sizePolicy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(widget_main.sizePolicy().hasHeightForWidth())
-        widget_main.setSizePolicy(sizePolicy)
-        widget_main.setMinimumSize(QSize(401, 349))
-        widget_main.setWindowTitle(u"Widget Main")
-        widget_main.setLayoutDirection(Qt.LeftToRight)
-        self.lbl_patch_status_indicator = QLabel(widget_main)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setMinimumSize(QSize(221, 131))
+        self.setWindowTitle(u"Carotene English Patcher for Uma Musume")
+        self.setLayoutDirection(Qt.LeftToRight)
+        self.lbl_patch_status_indicator = QLabel(self)
         self.lbl_patch_status_indicator.setObjectName(u"lbl_patch_status_indicator")
-        self.lbl_patch_status_indicator.setGeometry(QRect(110, 120, 21, 20))
+        self.lbl_patch_status_indicator.setGeometry(QRect(140, 10, 21, 20))
         sizePolicy.setHeightForWidth(self.lbl_patch_status_indicator.sizePolicy().hasHeightForWidth())
         self.lbl_patch_status_indicator.setSizePolicy(sizePolicy)
         self.lbl_patch_status_indicator.setMinimumSize(QSize(20, 20))
-        self.lbl_patch_status_indicator.setStyleSheet(u"background-color: rgb(255, 106, 0);")
+        self.lbl_patch_status_indicator.setStyleSheet(f"background-color: red;")
         self.lbl_patch_status_indicator.setText(u"")
-        self.lbl_patch_status_2 = QLabel(widget_main)
+        self.lbl_patch_status_2 = QLabel(self)
         self.lbl_patch_status_2.setObjectName(u"lbl_patch_status_2")
-        self.lbl_patch_status_2.setGeometry(QRect(140, 120, 151, 21))
-        self.lbl_patch_status_2.setText(u"Unpatched")
-        self.lbl_contribute = QLabel(widget_main)
-        self.lbl_contribute.setObjectName(u"lbl_contribute")
-        self.lbl_contribute.setGeometry(QRect(110, 210, 181, 21))
-        self.lbl_contribute.setText(u"Contribute")
-        self.lbl_contribute.setAlignment(Qt.AlignCenter)
-        self.btn_revert = QPushButton(widget_main)
+        self.lbl_patch_status_2.setGeometry(QRect(170, 10, 281, 21))
+        self.lbl_patch_status_2.setText("")
+
+        self.btn_revert = QPushButton(self)
         self.btn_revert.setObjectName(u"btn_revert")
-        self.btn_revert.setGeometry(QRect(210, 150, 83, 31))
-        self.btn_revert.setText(u"Revert")
-        self.btn_revert.clicked.connect(self.revert_clicked)
+        self.btn_revert.setGeometry(QRect(240, 70, 83, 31))
+        self.btn_revert.setText(u"Unpatch")
+        self.btn_revert.clicked.connect(self.unpatch)
 
-        self.btn_patch = QPushButton(widget_main)
+        self.btn_patch = QPushButton(self)
         self.btn_patch.setObjectName(u"btn_patch")
-        self.btn_patch.setGeometry(QRect(110, 150, 83, 31))
-        self.btn_patch.setText(u"Patch")
-        self.btn_patch.clicked.connect(self.patch_clicked)
+        self.btn_patch.setGeometry(QRect(140, 70, 83, 31))
+        
+        self.btn_patch.clicked.connect(self.patch)
 
-        self.lbl_update_indicator = QLabel(widget_main)
-        self.lbl_update_indicator.setObjectName(u"lbl_update_indicator")
-        self.lbl_update_indicator.setGeometry(QRect(110, 30, 20, 21))
-        sizePolicy.setHeightForWidth(self.lbl_update_indicator.sizePolicy().hasHeightForWidth())
-        self.lbl_update_indicator.setSizePolicy(sizePolicy)
-        self.lbl_update_indicator.setMinimumSize(QSize(20, 20))
-        self.lbl_update_indicator.setStyleSheet(u"background-color: rgb(255, 0, 0);")
-        self.lbl_update_indicator.setText(u"")
-        self.lbl_update_text = QLabel(widget_main)
-        self.lbl_update_text.setObjectName(u"lbl_update_text")
-        self.lbl_update_text.setGeometry(QRect(140, 30, 142, 20))
-        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.lbl_update_text.sizePolicy().hasHeightForWidth())
-        self.lbl_update_text.setSizePolicy(sizePolicy1)
-        self.lbl_update_text.setText(u"No update available")
-        self.btn_commit = QPushButton(widget_main)
-        self.btn_commit.setObjectName(u"btn_commit")
-        self.btn_commit.setGeometry(QRect(220, 240, 81, 31))
-        self.btn_commit.setText(u"Commit Edits")
-        self.btn_commit.clicked.connect(self.commit_clicked)
+        self.lbl_patch_status_3 = QLabel(self)
+        self.lbl_patch_status_3.setObjectName(u"lbl_patch_status_3")
+        self.lbl_patch_status_3.setGeometry(QRect(140, 40, 311, 21))
 
-        self.btn_update = QPushButton(widget_main)
-        self.btn_update.setObjectName(u"btn_update")
-        self.btn_update.setGeometry(QRect(110, 60, 81, 31))
-        self.btn_update.setText(u"Update")
-        self.btn_index = QPushButton(widget_main)
-        self.btn_index.setObjectName(u"btn_index")
-        self.btn_index.setGeometry(QRect(100, 240, 101, 31))
-        self.btn_index.setText(u"Index Game Text")
-        self.btn_index.clicked.connect(self.index_clicked)
-
-        self.line = QFrame(widget_main)
-        self.line.setObjectName(u"line")
-        self.line.setGeometry(QRect(100, 200, 201, 16))
-        self.line.setFrameShape(QFrame.HLine)
-        self.line.setFrameShadow(QFrame.Sunken)
-
-        self.retranslateUi(widget_main)
-
-        QMetaObject.connectSlotsByName(widget_main)
-
-        self.check_patched()
-    # setupUi
-
-    def retranslateUi(self, widget_main):
-        pass
-    # retranslateUi
-
+        self.plainTextEdit = QPlainTextEdit(self)
+        self.plainTextEdit.setObjectName(u"plainTextEdit")
+        self.plainTextEdit.setGeometry(QRect(10, 110, 441, 111))
+        self.plainTextEdit.setReadOnly(True)
+        self.plainTextEdit.setPlaceholderText(u"Log will go here.")
+        # Set font to Consolas with a size of 10
+        font = QFont()
+        font.setFamily(u"Consolas")
+        font.setPointSize(8)
+        self.plainTextEdit.setFont(font)
