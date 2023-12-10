@@ -8,6 +8,8 @@ import zipfile
 from PIL import Image, ImageFilter
 import tqdm as _tqdm
 import sys
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QIcon
 
 relative_dir = os.path.abspath(os.getcwd())
 unpack_dir = relative_dir
@@ -179,7 +181,7 @@ def download_latest():
     print(f"Downloading {ver}")
 
     os.makedirs('tmp', exist_ok=True)
-    dl_path = os.path.join('tmp', dl_asset['name'])
+    dl_path = get_asset(os.path.join('tmp', dl_asset['name']))
 
     download_file(dl_asset['browser_download_url'], dl_path)
 
@@ -225,3 +227,16 @@ def get_game_folder():
             break
     
     return path
+
+APPLICATION = None
+def run_widget(widget, *args, **kwargs):
+    global APPLICATION
+
+    if not APPLICATION:
+        APPLICATION = QApplication([])
+        APPLICATION.setWindowIcon(QIcon(get_asset('assets/icon.ico')))
+    
+    widget = widget(*args, **kwargs)
+    widget.show()
+    APPLICATION.exec_()
+    return

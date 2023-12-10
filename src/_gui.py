@@ -2,17 +2,13 @@
 import multiprocessing
 multiprocessing.freeze_support()
 
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QIcon
 from ui.widget_main import patcher_widget
 import util
+import version
 
 def main():
-    app = QApplication([])
-    app.setWindowIcon(QIcon(util.get_asset('assets/icon.ico')))
-    widget = patcher_widget()
-    widget.show()
-    app.exec_()
+    version.check_update()
+    util.run_widget(patcher_widget)
 
 if __name__ == "__main__":
     main()

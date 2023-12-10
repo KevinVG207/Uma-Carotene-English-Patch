@@ -4,7 +4,6 @@ import glob
 import shutil
 from multiprocessing.pool import Pool
 from itertools import repeat
-import tqdm
 import io
 import version
 import unity

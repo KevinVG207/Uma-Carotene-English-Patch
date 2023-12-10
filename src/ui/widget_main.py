@@ -146,7 +146,7 @@ class patcher_widget(QWidget):
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         self.setMinimumSize(QSize(221, 131))
-        self.setWindowTitle(u"Carotene English Patcher for Uma Musume")
+        self.setWindowTitle(f"Carotene English Patcher for Uma Musume {version.version_to_string(version.VERSION)}")
         self.setLayoutDirection(Qt.LeftToRight)
         self.lbl_patch_status_indicator = QLabel(self)
         self.lbl_patch_status_indicator.setObjectName(u"lbl_patch_status_indicator")
