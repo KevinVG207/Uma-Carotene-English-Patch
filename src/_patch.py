@@ -216,7 +216,7 @@ def _import_story(story_data):
         block_object = root.assets_file.files[new_block['path_id']]
         block_data = block_object.read_typetree()
 
-        block_data['Text'] = new_block['text']
+        block_data['Text'] = '<story>' + new_block['text']
         block_data['Name'] = new_block['name']
 
         if new_block.get('clip_length'):
@@ -322,7 +322,7 @@ def _import_hashed():
     return lines
 
 
-def import_assembly():
+def import_assembly(dl_latest=False):
     print("Importing assembly text...")
 
     game_folder = util.get_game_folder()
@@ -348,22 +348,25 @@ def import_assembly():
     
     print(f"Imported {len(lines)} lines.")
 
-    print("Looking for latest mod version")
-    latest_data = util.fetch_latest_github_release("KevinVG207", "Uma-Carotenify")
-    print("Downloading patcher mod.")
+    if dl_latest:
+        print("Looking for latest mod version")
+        latest_data = util.fetch_latest_github_release("KevinVG207", "Uma-Carotenify")
+        print("Downloading patcher mod.")
 
-    dll_url = None
-    for asset in latest_data['assets']:
-        if asset['name'] == 'version.dll':
-            dll_url = asset['browser_download_url']
-            break
-    
-    if not dll_url:
-        raise Exception("version.dll not found in release assets.")
-    
-    dll_path = os.path.join(game_folder, "version.dll")
+        dll_url = None
+        for asset in latest_data['assets']:
+            if asset['name'] == 'version.dll':
+                dll_url = asset['browser_download_url']
+                break
+        
+        if not dll_url:
+            raise Exception("version.dll not found in release assets.")
+        
+        dll_path = os.path.join(game_folder, "version.dll")
 
-    util.download_file(dll_url, dll_path)
+        util.download_file(dll_url, dll_path)
+    else:
+        print("Not downloading latest dll.")
 
     print("Done.")
 
@@ -381,7 +384,7 @@ def main(dl_latest=False):
 
     import_mdb()
 
-    import_assembly()
+    import_assembly(dl_latest)
 
     import_assets()
 
@@ -395,4 +398,4 @@ def test():
     import_assets()
 
 if __name__ == "__main__":
-    main(dl_latest=True)
+    main(dl_latest=False)
