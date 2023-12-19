@@ -8,8 +8,12 @@ import zipfile
 from PIL import Image, ImageFilter
 import tqdm as _tqdm
 import sys
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtGui import QIcon
+import win32gui
+import win32process
+import win32api
+import win32con
 
 relative_dir = os.path.abspath(os.getcwd())
 unpack_dir = relative_dir
@@ -105,6 +109,80 @@ def fix_transparency_pil(file_path, out_path):
         tmp.putalpha(image.split()[3])
         tmp = tmp.convert("RGBA")
         tmp.save(out_path if out_path else file_path)
+
+
+def get_process_path(hwnd: int) -> str:
+    # Get the process ID of the window
+    pid = win32process.GetWindowThreadProcessId(hwnd)[1]
+    # Open the process, and get the executable path
+    proc_path = win32process.GetModuleFileNameEx(win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid), 0)
+    return os.path.abspath(proc_path)
+
+
+window_handle = None
+def _get_window_exact(hwnd: int, query: str):
+    global window_handle
+    if win32gui.IsWindowVisible(hwnd):
+        if win32gui.GetWindowText(hwnd) == query:
+            window_handle = hwnd
+
+
+def _get_window_lazy(hwnd: int, query: str):
+    global window_handle
+    if win32gui.IsWindowVisible(hwnd):
+        if query.lower() in win32gui.GetWindowText(hwnd).lower():
+            window_handle = hwnd
+
+
+def _get_window_startswith(hwnd: int, query: str):
+    global window_handle
+    if win32gui.IsWindowVisible(hwnd):
+        if win32gui.GetWindowText(hwnd).startswith(query):
+            window_handle = hwnd
+
+def _get_window_by_executable(hwnd: int, query: str):
+    global window_handle
+    if win32gui.IsWindowVisible(hwnd):
+        proc_path = get_process_path(hwnd)
+        executable = os.path.basename(proc_path)
+        if executable == query:
+            window_handle = hwnd
+
+
+LAZY = _get_window_lazy
+EXACT = _get_window_exact
+STARTSWITH = _get_window_startswith
+EXEC_MATCH = _get_window_by_executable
+
+def get_window_handle(query: str, type=LAZY) -> str:
+    global window_handle
+
+    window_handle = None
+    win32gui.EnumWindows(type, query)
+    return window_handle
+
+def check_umamusume():
+    return get_window_handle("umamusume.exe", EXEC_MATCH)
+
+def close_umamusume():
+    if check_umamusume():
+        # Messagebox telling the user to close the game, choose Cancel and Continue
+        qm = QMessageBox()
+        # qm.warning(qm, "Please close the game", "Please close the game before continuing.", QMessageBox.Cancel | QMessageBox.Ok, QMessageBox.Cancel)
+        qm.setText("Please close the game before continuing.")
+        qm.setWindowTitle("Please close the game")
+        qm.setIcon(QMessageBox.Warning)
+        qm.setStandardButtons(QMessageBox.Cancel | QMessageBox.Ok)
+        qm.setDefaultButton(QMessageBox.Cancel)
+        qm.setEscapeButton(QMessageBox.Cancel)
+        run_widget(qm)
+        if qm.clickedButton() == qm.Cancel:
+            return False
+        
+        if check_umamusume():
+            return False
+
+    return True
 
 
 def test_for_type(args):
@@ -239,6 +317,9 @@ def run_widget(widget, *args, **kwargs):
         APPLICATION = QApplication([])
         APPLICATION.setWindowIcon(QIcon(get_asset('assets/icon.ico')))
     
+    if hasattr(widget, 'exec_'):
+        widget.exec_(*args, **kwargs)
+        return
     widget = widget(*args, **kwargs)
     widget.show()
     APPLICATION.exec_()
