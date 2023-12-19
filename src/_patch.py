@@ -389,14 +389,30 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
         if not dll_url:
             raise Exception("version.dll not found in release assets.")
         
+        prev_name = settings['dll_name']
+        if prev_name:
+            prev_bak = prev_name + util.DLL_BACKUP_SUFFIX
+
+            prev_path = os.path.join(game_folder, prev_name)
+            prev_bak_path = os.path.join(game_folder, prev_bak)
+
+            if os.path.exists(prev_path):
+                print(f"Deleting {prev_name}")
+                os.remove(prev_path)
+            
+            if os.path.exists(prev_bak_path):
+                print(f"Reverting existing {prev_bak}")
+                shutil.move(prev_bak_path, prev_path)
+        
+
         dll_path = os.path.join(game_folder, dll_name)
         bak_path = dll_path + util.DLL_BACKUP_SUFFIX
 
         if os.path.exists(dll_path) and not os.path.exists(bak_path):
             print(f"Backing up existing {dll_name}")
             shutil.move(dll_path, bak_path)
-            settings['dll_backup'] = os.path.basename(bak_path)
-
+        
+        settings['dll_name'] = dll_name
         util.download_file(dll_url, dll_path)
     else:
         print("Not downloading latest dll.")
@@ -404,7 +420,7 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
     print("Done.")
 
 
-def main(dl_latest=False):
+def main(dl_latest=False, dll_name='version.dll'):
     print("=== Patching ===")
 
     if not os.path.exists(util.MDB_PATH):
@@ -418,7 +434,7 @@ def main(dl_latest=False):
 
     import_mdb()
 
-    import_assembly(dl_latest)
+    import_assembly(dl_latest, dll_name)
 
     import_assets()
 
