@@ -138,7 +138,7 @@ class patcher_widget(QWidget):
         self.try_start_thread(lambda: _patch.main(dl_latest=True))
     
     def unpatch(self):
-        self.try_start_thread(lambda: _unpatch.main())
+        self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
 
     def setupUi(self):
         if not self.objectName():
