@@ -16,17 +16,20 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 #     shutil.copy(util.MDB_PATH, util.MDB_PATH + f".{round(time.time())}")
 
 
-def mark_mdb_translated():
+def mark_mdb_translated(ver=None):
     mark_mdb_untranslated()
+
+    if not ver:
+        ver = version.version_to_string(version.VERSION)
+
     print("Creating table")
     with util.MDBConnection() as (conn, cursor):
         cursor.execute("CREATE TABLE carotene (version TEXT);")
 
-        cur_version = version.version_to_string(version.VERSION)
         # Mark as translated
         cursor.execute(
             "INSERT INTO carotene (version) VALUES (?);",
-            (cur_version,)
+            (ver,)
         )
         conn.commit()
 
@@ -377,10 +380,11 @@ def main(dl_latest=False):
     if not os.path.exists(util.MDB_PATH):
         raise FileNotFoundError(f"MDB not found: {util.MDB_PATH}")
 
+    ver = None
     if dl_latest:
-        util.download_latest()
+        ver = util.download_latest()
 
-    mark_mdb_translated()
+    mark_mdb_translated(ver)
 
     import_mdb()
 

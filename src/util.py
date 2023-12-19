@@ -201,6 +201,7 @@ def download_latest():
     shutil.rmtree(TMP_FOLDER)
 
     print("Done")
+    return ver
 
 def clean_download():
     print("Removing temporary files")
