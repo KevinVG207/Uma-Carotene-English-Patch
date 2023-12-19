@@ -36,6 +36,12 @@ def get_asset(asset_path):
     return os.path.join(unpack_dir, asset_path)
 
 
+APP_DIR = os.path.expandvars("%AppData%\\Uma-Carotene\\")
+os.makedirs(APP_DIR, exist_ok=True)
+
+SETTINGS_PATH = APP_DIR + "patcher_settings.json"
+
+
 TQDM_FORMAT = "{desc}: {percentage:3.0f}% |{bar}|"
 TQDM_NCOLS = 65
 
@@ -59,6 +65,8 @@ ASSEMBLY_FOLDER = TL_PREFIX + "assembly\\"
 ASSEMBLY_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assembly\\"
 
 TABLE_BACKUP_PREFIX = "patch_backup_"
+
+DLL_BACKUP_SUFFIX = ".bak"
 
 class Connection():
     DB_PATH = None

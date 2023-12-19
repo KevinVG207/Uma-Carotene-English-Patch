@@ -8,6 +8,7 @@ import io
 import version
 import unity
 from PIL import Image, ImageFile
+from settings import settings
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -21,6 +22,8 @@ def mark_mdb_translated(ver=None):
 
     if not ver:
         ver = version.version_to_string(version.VERSION)
+
+    settings['installed_version'] = ver
 
     print("Creating table")
     with util.MDBConnection() as (conn, cursor):
@@ -37,40 +40,61 @@ def mark_mdb_translated(ver=None):
 
 
 def mark_mdb_untranslated():
+    settings['installed_version'] = None
+
     print("Dropping table")
     with util.MDBConnection() as (conn, cursor):
         # Remove carotene table if it exists
         cursor.execute("DROP TABLE IF EXISTS carotene;")
         conn.commit()
 
-
-def _get_version_from_table():
-    cur_ver = None
+def _get_value_from_table(key):
+    value = None
     with util.MDBConnection() as (conn, cursor):
         # Determine if carotene table exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carotene';")
         if not cursor.fetchone():
-            return cur_ver
+            return value
 
         # Get version
-        cursor.execute("SELECT version FROM carotene;")
+        cursor.execute(f"SELECT {key} FROM carotene;")
         row = cursor.fetchone()
         if not row:
-            return cur_ver
+            return value
         
-        cur_ver = row[0]
+        value = row[0]
     
-    return cur_ver
+    return value
 
+def _set_value_in_table(key, value):
+    with util.MDBConnection() as (conn, cursor):
+        # Determine if carotene table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carotene';")
+        if not cursor.fetchone():
+            return
+
+        # Get version
+        cursor.execute(f"UPDATE carotene SET {key} = ?;", (value,))
+        conn.commit()
+
+def _get_version_from_table():
+    return _get_value_from_table("version")
 
 def get_current_patch_ver():
     cur_ver = _get_version_from_table()
 
-    if not cur_ver:
-        # Check for any remaining backup files.
-        asset_backups = glob.glob(util.DATA_PATH + "\\**\\*.bak", recursive=True)
-        if asset_backups:
-            cur_ver = 'partial'
+    if cur_ver:
+        return cur_ver
+    
+    # Check for settings file.
+    cur_ver = settings['installed_version']
+    if cur_ver:
+        return 'partial'
+
+    # Check for any remaining backup files.
+    asset_backups = glob.glob(util.DATA_PATH + "\\**\\*.bak", recursive=True)
+    if asset_backups:
+        cur_ver = 'partial'
 
     return cur_ver
 
@@ -325,7 +349,7 @@ def _import_hashed():
     return lines
 
 
-def import_assembly(dl_latest=False):
+def import_assembly(dl_latest=False, dll_name='version.dll'):
     print("Importing assembly text...")
 
     game_folder = util.get_game_folder()
@@ -365,7 +389,13 @@ def import_assembly(dl_latest=False):
         if not dll_url:
             raise Exception("version.dll not found in release assets.")
         
-        dll_path = os.path.join(game_folder, "version.dll")
+        dll_path = os.path.join(game_folder, dll_name)
+        bak_path = dll_path + util.DLL_BACKUP_SUFFIX
+
+        if os.path.exists(dll_path) and not os.path.exists(bak_path):
+            print(f"Backing up existing {dll_name}")
+            shutil.move(dll_path, bak_path)
+            settings['dll_backup'] = os.path.basename(bak_path)
 
         util.download_file(dll_url, dll_path)
     else:

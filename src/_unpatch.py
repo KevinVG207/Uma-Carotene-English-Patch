@@ -3,6 +3,7 @@ import glob
 import shutil
 import os
 import _patch
+from settings import settings
 
 def revert_mdb():
     print("Reverting MDB")
@@ -47,7 +48,7 @@ def revert_assets():
             os.remove(asset_backup)
 
 
-def revert_assembly(dl_latest=False):
+def revert_assembly(dl_latest=False, dll_name='version.dll'):
     print("Reverting translations.txt")
     game_folder = util.get_game_folder()
 
@@ -60,7 +61,7 @@ def revert_assembly(dl_latest=False):
         return
 
     translations_path = os.path.join(game_folder, "translations.txt")
-    dll_path = os.path.join(game_folder, "version.dll")
+    dll_path = os.path.join(game_folder, dll_name)
 
     if not os.path.exists(translations_path):
         print("translations.txt does not exist. Skipping.")
@@ -68,13 +69,20 @@ def revert_assembly(dl_latest=False):
         os.remove(translations_path)
 
     if dl_latest:
-        print("Deleting version.dll")
-        if not os.path.exists(dll_path):
-            print("version.dll does not exist. Skipping.")
-        else:
+        if os.path.exists(dll_path):
+            print(f"Deleting {dll_name}")
             os.remove(dll_path)
+
+        bak_name = settings['dll_backup']
+        if bak_name:
+            bak_path = os.path.join(game_folder, bak_name)
+            
+            if os.path.exists(bak_path):
+                print(f"Restoring previous {bak_name}")
+                shutil.move(bak_path, dll_path)
+
     else:
-        print("Keeping version.dll")
+        print(f"Keeping {dll_name}")
 
 
 def main(dl_latest=False):
