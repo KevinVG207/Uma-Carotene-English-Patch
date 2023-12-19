@@ -40,8 +40,10 @@ META_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamu
 
 DATA_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\dat")
 
-TL_PREFIX = "translations\\"
-INTERMEDIATE_PREFIX = "editing\\"
+TMP_FOLDER = get_asset("tmp\\")
+
+TL_PREFIX = get_asset("translations\\")
+INTERMEDIATE_PREFIX = get_asset("editing\\")
 
 MDB_FOLDER = TL_PREFIX + "mdb\\"
 MDB_FOLDER_EDITING = INTERMEDIATE_PREFIX + "mdb\\"
@@ -180,12 +182,12 @@ def download_latest():
     
     print(f"Downloading {ver}")
 
-    os.makedirs('tmp', exist_ok=True)
-    dl_path = get_asset(os.path.join('tmp', dl_asset['name']))
+    os.makedirs(TMP_FOLDER, exist_ok=True)
+    dl_path = os.path.join(TMP_FOLDER, dl_asset['name'])
 
     download_file(dl_asset['browser_download_url'], dl_path)
 
-    final_path = get_relative(TL_PREFIX)
+    final_path = TL_PREFIX
     if os.path.exists(final_path):
         print("Deleting old files")
         shutil.rmtree(final_path)
@@ -196,14 +198,14 @@ def download_latest():
     with zipfile.ZipFile(dl_path, 'r') as zip_ref:
         zip_ref.extractall(final_path)
     
-    shutil.rmtree('tmp')
+    shutil.rmtree(TMP_FOLDER)
 
     print("Done")
 
 def clean_download():
     print("Removing temporary files")
-    if os.path.exists(get_relative(TL_PREFIX)):
-        shutil.rmtree(get_relative(TL_PREFIX))
+    if os.path.exists(TL_PREFIX):
+        shutil.rmtree(TL_PREFIX)
     print("Done")
 
 def tqdm(*args, **kwargs):
