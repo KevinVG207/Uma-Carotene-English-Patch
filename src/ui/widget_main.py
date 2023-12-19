@@ -8,6 +8,7 @@ import _patch
 import _unpatch
 import util
 import version
+from settings import settings
 import enum
 import sys
 import traceback
@@ -50,6 +51,8 @@ class patcher_widget(QWidget):
 
         self.pipe_output()
         self.update_patch_status()
+
+        self.raise_()
     
     def update_patch_status(self):
         current_version = _patch.get_current_patch_ver()
@@ -96,6 +99,7 @@ class patcher_widget(QWidget):
             self.lbl_patch_status_3.setText(f"Your patch is incomplete, possibly due to a game update.")
 
 
+
     def pipe_output(self):
         sys.stdout = Stream(newText=self.onUpdateText)
         sys.stderr = Stream(newText=self.onUpdateText)
@@ -135,7 +139,13 @@ class patcher_widget(QWidget):
         self.thread_.start()
 
     def patch(self):
-        self.try_start_thread(lambda: _patch.main(dl_latest=True))
+        # Handle DLL choice
+        if self.rbt_version.isChecked():
+            dll_name = 'version.dll'
+        else:
+            dll_name = 'uxtheme.dll'
+
+        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name))
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
@@ -180,6 +190,43 @@ class patcher_widget(QWidget):
         self.lbl_patch_status_3 = QLabel(self)
         self.lbl_patch_status_3.setObjectName(u"lbl_patch_status_3")
         self.lbl_patch_status_3.setGeometry(QRect(140, 40, 311, 21))
+
+
+        self.verticalLayoutWidget = QWidget(self)
+        self.verticalLayoutWidget.setObjectName(u"verticalLayoutWidget")
+        self.verticalLayoutWidget.setGeometry(QRect(10, 40, 121, 71))
+        self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.lbl_dll = QLabel(self.verticalLayoutWidget)
+        self.lbl_dll.setObjectName(u"lbl_dll")
+        self.lbl_dll.setText(u"DLL name:")
+
+        self.verticalLayout.addWidget(self.lbl_dll)
+
+        self.rbt_version = QRadioButton(self.verticalLayoutWidget)
+        self.rbt_version.setObjectName(u"rbt_version")
+        self.rbt_version.setText(u"version.dll")
+
+        self.verticalLayout.addWidget(self.rbt_version)
+
+        self.rbt_uxtheme = QRadioButton(self.verticalLayoutWidget)
+        self.rbt_uxtheme.setObjectName(u"rbt_uxtheme")
+        self.rbt_uxtheme.setText(u"uxtheme.dll")
+
+        self.verticalLayout.addWidget(self.rbt_uxtheme)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.verticalLayout.addItem(self.verticalSpacer)
+
+        # Handle DLL choice
+        dll_name = settings['dll_name']
+        if dll_name == 'version.dll':
+            self.rbt_version.setChecked(True)
+        else:
+            self.rbt_uxtheme.setChecked(True)
+
 
         self.plainTextEdit = QPlainTextEdit(self)
         self.plainTextEdit.setObjectName(u"plainTextEdit")

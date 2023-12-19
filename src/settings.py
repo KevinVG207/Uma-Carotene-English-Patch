@@ -5,8 +5,7 @@ import os
 
 default_settings = {
     'installed_version': None,
-    'dll_backup': None,
-    'dll_choice': 0
+    'dll_name': None
 }
 
 class Settings:
