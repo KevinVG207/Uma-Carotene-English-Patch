@@ -114,6 +114,10 @@ class patcher_widget(QWidget):
         if self.background_thread:
             return
         
+        if not util.close_umamusume():
+            print("Error: The game is still running.")
+            return
+        
         self.btn_patch.setEnabled(False)
         self.btn_revert.setEnabled(False)
         
