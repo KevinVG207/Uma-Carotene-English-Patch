@@ -150,6 +150,12 @@ class patcher_widget(QWidget):
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
 
+    def closeEvent(self, event):
+        if self.background_thread:
+            QMessageBox.critical(self, "Cannot Close", "Please wait for the patcher to finish.", QMessageBox.Ok)
+            event.ignore()
+            return
+
     def setupUi(self):
         if not self.objectName():
             self.setObjectName(u"widget_main")
