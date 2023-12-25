@@ -210,8 +210,18 @@ def handle_backup(asset_hash):
     asset_path_bak = asset_path + ".bak"
 
     if not os.path.exists(asset_path):
-        print(f"Asset not found: {asset_path}")
-        return None
+        # Try to download the missing asset
+        row = None
+        with util.MetaConnection() as (conn, cursor):
+            cursor.execute("SELECT i FROM a WHERE h = ?;", (asset_hash,))
+            row = cursor.fetchone()
+
+        if not row:
+            print(f"Asset not found: {asset_hash} - Skipping")
+            return None
+
+        # Download the asset
+        util.download_asset(asset_hash, no_progress=True)
 
     if not os.path.exists(asset_path_bak):
         shutil.copy(asset_path, asset_path_bak)
@@ -328,7 +338,7 @@ def import_assets():
     jsons = glob.glob(util.ASSETS_FOLDER + "\\**\\*.json", recursive=True)
 
     with Pool() as pool:
-        results = list(util.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for textures"))
+        results = list(util.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for assets"))
 
     # asset_dict = {result[0]: result[1] for result in results if result[0]}
     asset_dict = {}
