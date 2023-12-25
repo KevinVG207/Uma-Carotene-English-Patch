@@ -252,15 +252,20 @@ def get_latest_dll_json():
 
     return LATEST_DLL_DATA
 
-def download_file(url, path):
+def download_file(url, path, no_progress=False):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(path, "wb") as f:
             bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
-            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
+            if no_progress:
+                progress_bar = None
+            else:
+                progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
             for chunk in r.iter_content(chunk_size=8192):
-                progress_bar.update(len(chunk))
                 f.write(chunk)
+
+                if progress_bar:
+                    progress_bar.update(len(chunk))
 
 def download_latest():
     print("Downloading latest translation files")
@@ -377,3 +382,20 @@ def redownload_mdb():
     url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Generic/{0:.2}/{0}'.format(asset_hash)
     download_lz4(url, mdb_path)
     print("=== Downloaded latest master.mdb. You may now apply the patch again. ===")
+
+def download_asset(hash, no_progress=False):
+    asset_path = get_asset_path(hash)
+    if os.path.exists(asset_path):
+        return
+    
+    print_str = f"Downloading missing asset {hash}"
+    if no_progress:
+        print_str = "\n" + print_str
+    
+    print(print_str)
+
+    os.makedirs(os.path.dirname(asset_path), exist_ok=True)
+
+    url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Windows/assetbundles/{0:.2}/{0}'.format(hash)
+    
+    download_file(url, asset_path, no_progress=no_progress)
