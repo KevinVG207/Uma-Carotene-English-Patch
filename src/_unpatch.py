@@ -68,9 +68,9 @@ def revert_assembly(dl_latest=False):
         os.remove(translations_path)
 
     if dl_latest:
-        dll_name = settings['dll_name']
+        dll_name = settings.dll_name
         if dll_name:
-            settings['dll_name'] = None
+            settings.dll_name = None
             dll_path = os.path.join(game_folder, dll_name)
 
             if os.path.exists(dll_path):
@@ -84,7 +84,7 @@ def revert_assembly(dl_latest=False):
                 shutil.move(bak_path, dll_path)
 
     else:
-        print(f"Keeping {dll_name}")
+        print(f"Keeping dll")
 
 
 def main(dl_latest=False):
@@ -94,6 +94,10 @@ def main(dl_latest=False):
     revert_assets()
     revert_assembly(dl_latest)
     _patch.mark_mdb_untranslated()
+    settings.install_started = False
+    settings.installed_version = None
+    settings.dll_version = None
+    settings.installed = False
     print("=== Unpatch complete! ===\n")
 
 if __name__ == "__main__":

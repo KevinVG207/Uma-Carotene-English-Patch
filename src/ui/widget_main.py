@@ -3,7 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtCore import QObject
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QMessageBox
 import _patch
 import _unpatch
 import util
@@ -15,9 +15,12 @@ import traceback
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
-    Patched = ['Patched {}', '#00ff00']
-    Outdated = ['Outdated {}', 'orange']
+    Patched = ['Patched TL{} DLL{}', '#00ff00']
+    Outdated = ['Outdated TL{} DLL{}', 'orange']
+    DllOutdated = ['DLL outdated TL{} DLL{}', 'orange']
     Partial = ['Remnants found, please reapply', 'yellow']
+    Unfinished = ['Installation was interrupted', 'yellow']
+    DllNotFound = ['DLL not found', 'yellow']
 
 class Stream(QObject):
     newText = pyqtSignal(str)
@@ -55,25 +58,39 @@ class patcher_widget(QWidget):
         self.raise_()
     
     def update_patch_status(self):
-        current_version = _patch.get_current_patch_ver()
+        cur_patch_ver, cur_dll_ver = _patch.get_current_patch_ver()
         latest_version_data = util.get_latest_json()
+        latest_dll_version_data = util.get_latest_dll_json()
 
-        if not current_version:
+        if not cur_patch_ver:
             patch_status = PatchStatus.Unpatched
-        elif current_version == 'partial':
+        elif cur_patch_ver == 'partial':
             patch_status = PatchStatus.Partial
+        elif cur_patch_ver == 'unfinished':
+            patch_status = PatchStatus.Unfinished
+        elif cur_patch_ver == 'dllnotfound':
+            patch_status = PatchStatus.DllNotFound
+        elif not cur_dll_ver:
+            patch_status = PatchStatus.Unpatched
         else:
-            cur_ver = version.string_to_version(current_version)
+            cur_patch_ver = version.string_to_version(cur_patch_ver)
+            cur_dll_ver = version.string_to_version(cur_dll_ver)
             latest_ver = version.string_to_version(latest_version_data['tag_name'])
 
-            if latest_ver > cur_ver:
+            latest_dll_ver = version.string_to_version(latest_dll_version_data['tag_name'])
+
+            if latest_ver > cur_patch_ver:
                 patch_status = PatchStatus.Outdated
+            elif latest_dll_ver > cur_dll_ver:
+                patch_status = PatchStatus.DllOutdated
             else:
                 patch_status = PatchStatus.Patched
+
+            
         
         patch_text, patch_color = patch_status.value
         if '{}' in patch_text:
-            patch_text = patch_text.format(current_version)
+            patch_text = patch_text.format(version.version_to_string(cur_patch_ver), version.version_to_string(cur_dll_ver))
 
         self.lbl_patch_status_indicator.setStyleSheet(f"background-color: {patch_color};")
 
@@ -83,20 +100,26 @@ class patcher_widget(QWidget):
         if patch_status == PatchStatus.Unpatched:
             self.btn_patch.setText(u"Patch")
         
-        elif patch_status in (PatchStatus.Patched, PatchStatus.Partial):
-            self.btn_patch.setText(u"Reapply")
-        
-        elif patch_status == PatchStatus.Outdated:
+        elif patch_status == PatchStatus.Outdated or patch_status == PatchStatus.DllOutdated:
             self.btn_patch.setText(u"Update")
+        
+        else:
+            self.btn_patch.setText(u"Reapply")
     
         if patch_status == PatchStatus.Unpatched:
-            self.lbl_patch_status_3.setText(f"Install {latest_version_data['tag_name']} now!")
+            self.lbl_patch_status_3.setText(f"Install the latest patch version.")
         elif patch_status == PatchStatus.Patched:
             self.lbl_patch_status_3.setText(f"Latest version is installed!")
         elif patch_status == PatchStatus.Outdated:
-            self.lbl_patch_status_3.setText(f"<b>Update to {latest_version_data['tag_name']} now!</b>")
+            self.lbl_patch_status_3.setText(f"<b>Update to TL {latest_version_data['tag_name']} now!</b>")
+        elif patch_status == PatchStatus.DllOutdated:
+            self.lbl_patch_status_3.setText(f"<b>Update to DLL {latest_dll_version_data['tag_name']} now!</b>")
         elif patch_status == PatchStatus.Partial:
             self.lbl_patch_status_3.setText(f"Your patch is incomplete, possibly due to a game update.")
+        elif patch_status == PatchStatus.Unfinished:
+            self.lbl_patch_status_3.setText(f"Your patch was interrupted. Please reapply.")
+        elif patch_status == PatchStatus.DllNotFound:
+            self.lbl_patch_status_3.setText(f"Your DLL is missing. Please reapply.")
 
 
 
@@ -221,7 +244,7 @@ class patcher_widget(QWidget):
         self.verticalLayout.addItem(self.verticalSpacer)
 
         # Handle DLL choice
-        dll_name = settings['dll_name']
+        dll_name = settings.dll_name
         if dll_name == 'version.dll':
             self.rbt_version.setChecked(True)
         else:

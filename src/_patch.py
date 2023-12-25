@@ -23,7 +23,7 @@ def mark_mdb_translated(ver=None):
     if not ver:
         ver = version.version_to_string(version.VERSION)
 
-    settings['installed_version'] = ver
+    settings.installed_version = ver
 
     print("Creating table")
     with util.MDBConnection() as (conn, cursor):
@@ -40,7 +40,7 @@ def mark_mdb_translated(ver=None):
 
 
 def mark_mdb_untranslated():
-    settings['installed_version'] = None
+    settings.installed_version = None
 
     print("Dropping table")
     with util.MDBConnection() as (conn, cursor):
@@ -81,22 +81,55 @@ def _get_version_from_table():
     return _get_value_from_table("version")
 
 def get_current_patch_ver():
-    cur_ver = _get_version_from_table()
+    # Load settings
+    cur_patch_ver = settings.installed_version
+    cur_dll_ver = settings.dll_version
+    install_started = settings.install_started
+    is_installed = settings.installed
+    dll_name = settings.dll_name
 
-    if cur_ver:
-        return cur_ver
+    if not dll_name:
+        dll_path = None
+    else:
+        dll_path = os.path.join(util.get_game_folder(), dll_name)
+
+    mdb_ver = _get_version_from_table()
+
+    if install_started:
+        # The patcher was started, but not finished.
+        return "unfinished", None
+
+    # Not installed
+    if not is_installed:
+        # Nothing is installed
+        return None, None
     
-    # Check for settings file.
-    cur_ver = settings['installed_version']
-    if cur_ver:
-        return 'partial'
+    # Installed
+    if not mdb_ver:
+        # The mdb is not marked as translated, but the patch was installed.
+        # The game has been updated.
+        return "partial", None
+    
+    if not dll_path:
+        # This should not happen.
+        return "partial", None
 
-    # Check for any remaining backup files.
-    asset_backups = glob.glob(util.DATA_PATH + "\\**\\*.bak", recursive=True)
-    if asset_backups:
-        cur_ver = 'partial'
+    if not os.path.exists(dll_path):
+        # The dll is not installed, but the mdb is marked as translated.
+        # The dll was deleted.
+        return "dllnotfound", None
 
-    return cur_ver
+    if not mdb_ver or not cur_dll_ver:
+        # The mdb is not marked as translated, or the dll was never installed.
+        return "partial", None
+
+    if cur_patch_ver != mdb_ver:
+        # The mdb version does not match the installed patch version.
+        # This should never happen, but we mark it as partial just in case.
+        return "partial", None
+    
+    # The patch is installed.
+    return cur_patch_ver, cur_dll_ver
 
 
 def import_mdb():
@@ -143,7 +176,7 @@ def clean_asset_backups():
         if not os.path.exists(asset_path):
             print(f"Deleting {asset_backup}")
             os.remove(asset_backup)
-    print("Done")
+    # print("Done")
 
 def create_new_image_from_path_id(asset_bundle, path_id, diff_path):
     # Read the original texture
@@ -377,7 +410,7 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
 
     if dl_latest:
         print("Looking for latest mod version")
-        latest_data = util.fetch_latest_github_release("KevinVG207", "Uma-Carotenify")
+        latest_data = util.get_latest_dll_json()
         print("Downloading patcher mod.")
 
         dll_url = None
@@ -389,7 +422,7 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
         if not dll_url:
             raise Exception("version.dll not found in release assets.")
         
-        prev_name = settings['dll_name']
+        prev_name = settings.dll_name
         if prev_name:
             prev_bak = prev_name + util.DLL_BACKUP_SUFFIX
 
@@ -412,12 +445,65 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
             print(f"Backing up existing {dll_name}")
             shutil.move(dll_path, bak_path)
         
-        settings['dll_name'] = dll_name
+        settings.dll_name = dll_name
         util.download_file(dll_url, dll_path)
+        settings.dll_version = latest_data['tag_name']
+
     else:
         print("Not downloading latest dll.")
 
-    print("Done.")
+    # print("Done.")
+        
+
+def upgrade():
+    prev_client = settings.client_version
+    cur_client = version.VERSION
+
+    print("Checking for upgrade...")
+
+    if prev_client == cur_client:
+        return
+    
+    if prev_client is None:
+        # Either first time running, or < v0.1.4
+        # Either way, try renaming tables.
+        print("Upgrading from < v0.1.4 or first time running.\nRenaming existing tables.")
+
+        with util.MDBConnection() as (conn, cursor):
+            # Find table 'carotene'
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carotene';")
+            if cursor.fetchone():
+                # Rename to new table name
+                new_table = util.TABLE_PREFIX
+                
+                # Check if new table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (new_table,))
+                if cursor.fetchone():
+                    # Table already exists.
+                    # Remove the old table.
+                    cursor.execute("DROP TABLE carotene;")
+                else:
+                    cursor.execute(f"ALTER TABLE carotene RENAME TO {new_table};")
+            
+            # Find any that start with 'patch_backup_'
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'patch_backup_%';")
+            tables = cursor.fetchall()
+            if tables:
+                for table in tables:
+                    table = table[0]
+                    new_table = util.TABLE_BACKUP_PREFIX + table[len('patch_backup_'):]
+
+                    # Check if new table exists
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (new_table,))
+                    if cursor.fetchone():
+                        # Table already exists.
+                        # Remove the old table.
+                        cursor.execute(f"DROP TABLE {new_table};")
+                    else:
+                        # Rename to new table name
+                        cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table};")
+
+            conn.commit()
 
 
 def main(dl_latest=False, dll_name='version.dll'):
@@ -430,6 +516,11 @@ def main(dl_latest=False, dll_name='version.dll'):
     if dl_latest:
         ver = util.download_latest()
 
+    upgrade()
+
+    settings.client_version = version.VERSION
+    settings.install_started = True
+
     mark_mdb_translated(ver)
 
     import_mdb()
@@ -440,6 +531,9 @@ def main(dl_latest=False, dll_name='version.dll'):
 
     if dl_latest:
         util.clean_download()
+    
+    settings.install_started = False
+    settings.installed = True
     
     print("=== Patching complete! ===\n")
 

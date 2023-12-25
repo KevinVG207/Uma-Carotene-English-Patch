@@ -64,7 +64,8 @@ ASSETS_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assets\\"
 ASSEMBLY_FOLDER = TL_PREFIX + "assembly\\"
 ASSEMBLY_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assembly\\"
 
-TABLE_BACKUP_PREFIX = "patch_backup_"
+TABLE_PREFIX = '_carotene'
+TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
@@ -240,6 +241,15 @@ def get_latest_json():
 
     return LATEST_DATA
 
+LATEST_DLL_DATA = None
+def get_latest_dll_json():
+    global LATEST_DLL_DATA
+
+    if not LATEST_DLL_DATA:
+        LATEST_DLL_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotenify')
+
+    return LATEST_DLL_DATA
+
 def download_file(url, path):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
@@ -286,14 +296,14 @@ def download_latest():
     
     shutil.rmtree(TMP_FOLDER)
 
-    print("Done")
+    # print("Done")
     return ver
 
 def clean_download():
     print("Removing temporary files")
     if os.path.exists(TL_PREFIX):
         shutil.rmtree(TL_PREFIX)
-    print("Done")
+    # print("Done")
 
 def tqdm(*args, **kwargs):
     if not kwargs.get('bar_format'):
