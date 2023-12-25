@@ -376,3 +376,4 @@ def redownload_mdb():
     # Download the mdb
     url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Generic/{0:.2}/{0}'.format(asset_hash)
     download_lz4(url, mdb_path)
+    print("=== Downloaded latest master.mdb. You may now apply the patch again. ===")
