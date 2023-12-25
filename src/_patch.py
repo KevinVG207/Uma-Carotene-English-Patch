@@ -7,8 +7,11 @@ from itertools import repeat
 import io
 import version
 import unity
+import time
+from sqlite3 import Error as SqliteError
 from PIL import Image, ImageFile
 from settings import settings
+from PyQt5.QtWidgets import QMessageBox
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -510,7 +513,7 @@ def main(dl_latest=False, dll_name='version.dll'):
     print("=== Patching ===")
 
     if not os.path.exists(util.MDB_PATH):
-        raise FileNotFoundError(f"MDB not found: {util.MDB_PATH}")
+        raise SqliteError(f"MDB not found: {util.MDB_PATH}")
 
     ver = None
     if dl_latest:

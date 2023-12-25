@@ -12,6 +12,7 @@ from settings import settings
 import enum
 import sys
 import traceback
+from sqlite3 import Error as SqliteError
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
@@ -31,15 +32,17 @@ class Stream(QObject):
 class Worker(QObject):
     finished = pyqtSignal()
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, parent, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.func = func
+        self._parent = parent
 
     def run(self):
         try:
             self.func()
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            self._parent.error = e
+            self._parent.traceback = traceback.format_exc()
         self.finished.emit()
 
 class patcher_widget(QWidget):
@@ -48,6 +51,9 @@ class patcher_widget(QWidget):
 
         self.base_widget = base_widget
         self.background_thread = False
+        self.error_handler = None
+        self.error = None
+        self.traceback = None
 
         self.setupUi()
         self.setFixedSize(self.size())
@@ -124,8 +130,9 @@ class patcher_widget(QWidget):
 
 
     def pipe_output(self):
-        sys.stdout = Stream(newText=self.onUpdateText)
-        sys.stderr = Stream(newText=self.onUpdateText)
+        if not util.is_script:
+            sys.stdout = Stream(newText=self.onUpdateText)
+            sys.stderr = Stream(newText=self.onUpdateText)
     
     def onUpdateText(self, text):
         self.plainTextEdit.moveCursor(QTextCursor.End)
@@ -134,10 +141,19 @@ class patcher_widget(QWidget):
     
     def clean_thread(self):
         self.background_thread = False
+
+        if self.error:
+            print(self.traceback)
+            if self.error_handler:
+                self.error_handler(self.error)
+
+        self.error_handler = None
+        self.error = None
+        self.traceback = None
         self.btn_patch.setEnabled(True)
         self.btn_revert.setEnabled(True)
 
-    def try_start_thread(self, func):
+    def try_start_thread(self, func, error_handler=None):
         if self.background_thread:
             return
         
@@ -149,8 +165,9 @@ class patcher_widget(QWidget):
         self.btn_revert.setEnabled(False)
         
         self.background_thread = True
+        self.error_handler = error_handler
         self.thread_ = QThread()
-        self.worker = Worker(func)
+        self.worker = Worker(func, self)
         
         self.worker.moveToThread(self.thread_)
         self.thread_.started.connect(self.worker.run)
@@ -168,7 +185,7 @@ class patcher_widget(QWidget):
         else:
             dll_name = 'uxtheme.dll'
 
-        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name))
+        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name), error_handler=self.patch_error)
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
@@ -178,6 +195,13 @@ class patcher_widget(QWidget):
             QMessageBox.critical(self, "Cannot Close", "Please wait for the patcher to finish.", QMessageBox.Ok)
             event.ignore()
             return
+    
+    def patch_error(self, e):
+        if isinstance(e, SqliteError):
+            res = QMessageBox.warning(self, "Database Error", "An error occurred while patching the game's database.<br>It may be invalid. Do you want to redownload the database?", QMessageBox.Yes | QMessageBox.No)
+            if res == QMessageBox.Yes:
+                self.try_start_thread(lambda: util.redownload_mdb())
+
 
     def setupUi(self):
         if not self.objectName():

@@ -14,6 +14,8 @@ import win32gui
 import win32process
 import win32api
 import win32con
+import lz4.frame
+import time
 
 relative_dir = os.path.abspath(os.getcwd())
 unpack_dir = relative_dir
@@ -342,3 +344,35 @@ def run_widget(widget, *args, **kwargs):
     widget.show()
     APPLICATION.exec_()
     return
+
+def download_lz4(url, mdb_path):
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        lz4_context = lz4.frame.create_decompression_context()
+        with open(mdb_path, "wb") as f:
+            bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
+            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
+            for chunk in r.iter_content(chunk_size=4096):
+                progress_bar.update(len(chunk))
+                chunk, _, _ = lz4.frame.decompress_chunk(lz4_context, chunk)
+                f.write(chunk)
+
+def redownload_mdb():
+    # Find the url of the latest mdb
+    with MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT h FROM a WHERE n = 'master.mdb.lz4';")
+        row = cursor.fetchone()
+    
+    if not row:
+        raise Exception("master.mdb.lz4 not found in meta")
+    
+    asset_hash = row[0]
+
+    # Backup the existing mdb
+    mdb_path = MDB_PATH
+    mdb_path_bak = f'{mdb_path}.{int(time.time())}.bak'
+    shutil.copy(mdb_path, mdb_path_bak)
+
+    # Download the mdb
+    url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Generic/{0:.2}/{0}'.format(asset_hash)
+    download_lz4(url, mdb_path)
