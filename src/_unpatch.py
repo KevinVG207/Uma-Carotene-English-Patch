@@ -22,6 +22,13 @@ def revert_mdb():
             rows = cursor.fetchall()
             
             normal_table = table[len(util.TABLE_BACKUP_PREFIX):]
+
+            # Check if the table exists
+            cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{normal_table}';")
+            if not cursor.fetchall():
+                print(f"Table {normal_table} does not exist. Skipping.")
+                continue
+
             # Chunk the rows
             for i in range(0, len(rows), 1000):
                 chunk = rows[i:i+1000]
