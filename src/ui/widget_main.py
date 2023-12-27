@@ -3,7 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtCore import QObject
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QMessageBox
 import _patch
 import _unpatch
 import util
@@ -12,12 +12,16 @@ from settings import settings
 import enum
 import sys
 import traceback
+from sqlite3 import Error as SqliteError
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
-    Patched = ['Patched {}', '#00ff00']
-    Outdated = ['Outdated {}', 'orange']
+    Patched = ['Patched TL{} DLL{}', '#00ff00']
+    Outdated = ['Outdated TL{} DLL{}', 'orange']
+    DllOutdated = ['DLL outdated TL{} DLL{}', 'orange']
     Partial = ['Remnants found, please reapply', 'yellow']
+    Unfinished = ['Installation was interrupted', 'yellow']
+    DllNotFound = ['DLL not found', 'yellow']
 
 class Stream(QObject):
     newText = pyqtSignal(str)
@@ -28,15 +32,17 @@ class Stream(QObject):
 class Worker(QObject):
     finished = pyqtSignal()
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, parent, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.func = func
+        self._parent = parent
 
     def run(self):
         try:
             self.func()
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            self._parent.error = e
+            self._parent.traceback = traceback.format_exc()
         self.finished.emit()
 
 class patcher_widget(QWidget):
@@ -45,6 +51,9 @@ class patcher_widget(QWidget):
 
         self.base_widget = base_widget
         self.background_thread = False
+        self.error_handler = None
+        self.error = None
+        self.traceback = None
 
         self.setupUi()
         self.setFixedSize(self.size())
@@ -55,25 +64,39 @@ class patcher_widget(QWidget):
         self.raise_()
     
     def update_patch_status(self):
-        current_version = _patch.get_current_patch_ver()
+        cur_patch_ver, cur_dll_ver = _patch.get_current_patch_ver()
         latest_version_data = util.get_latest_json()
+        latest_dll_version_data = util.get_latest_dll_json()
 
-        if not current_version:
+        if not cur_patch_ver:
             patch_status = PatchStatus.Unpatched
-        elif current_version == 'partial':
+        elif cur_patch_ver == 'partial':
             patch_status = PatchStatus.Partial
+        elif cur_patch_ver == 'unfinished':
+            patch_status = PatchStatus.Unfinished
+        elif cur_patch_ver == 'dllnotfound':
+            patch_status = PatchStatus.DllNotFound
+        elif not cur_dll_ver:
+            patch_status = PatchStatus.Unpatched
         else:
-            cur_ver = version.string_to_version(current_version)
+            cur_patch_ver = version.string_to_version(cur_patch_ver)
+            cur_dll_ver = version.string_to_version(cur_dll_ver)
             latest_ver = version.string_to_version(latest_version_data['tag_name'])
 
-            if latest_ver > cur_ver:
+            latest_dll_ver = version.string_to_version(latest_dll_version_data['tag_name'])
+
+            if latest_ver > cur_patch_ver:
                 patch_status = PatchStatus.Outdated
+            elif latest_dll_ver > cur_dll_ver:
+                patch_status = PatchStatus.DllOutdated
             else:
                 patch_status = PatchStatus.Patched
+
+            
         
         patch_text, patch_color = patch_status.value
         if '{}' in patch_text:
-            patch_text = patch_text.format(current_version)
+            patch_text = patch_text.format(version.version_to_string(cur_patch_ver), version.version_to_string(cur_dll_ver))
 
         self.lbl_patch_status_indicator.setStyleSheet(f"background-color: {patch_color};")
 
@@ -83,26 +106,33 @@ class patcher_widget(QWidget):
         if patch_status == PatchStatus.Unpatched:
             self.btn_patch.setText(u"Patch")
         
-        elif patch_status in (PatchStatus.Patched, PatchStatus.Partial):
-            self.btn_patch.setText(u"Reapply")
-        
-        elif patch_status == PatchStatus.Outdated:
+        elif patch_status == PatchStatus.Outdated or patch_status == PatchStatus.DllOutdated:
             self.btn_patch.setText(u"Update")
+        
+        else:
+            self.btn_patch.setText(u"Reapply")
     
         if patch_status == PatchStatus.Unpatched:
-            self.lbl_patch_status_3.setText(f"Install {latest_version_data['tag_name']} now!")
+            self.lbl_patch_status_3.setText(f"Install the latest patch version.")
         elif patch_status == PatchStatus.Patched:
             self.lbl_patch_status_3.setText(f"Latest version is installed!")
         elif patch_status == PatchStatus.Outdated:
-            self.lbl_patch_status_3.setText(f"<b>Update to {latest_version_data['tag_name']} now!</b>")
+            self.lbl_patch_status_3.setText(f"<b>Update to TL {latest_version_data['tag_name']} now!</b>")
+        elif patch_status == PatchStatus.DllOutdated:
+            self.lbl_patch_status_3.setText(f"<b>Update to DLL {latest_dll_version_data['tag_name']} now!</b>")
         elif patch_status == PatchStatus.Partial:
             self.lbl_patch_status_3.setText(f"Your patch is incomplete, possibly due to a game update.")
+        elif patch_status == PatchStatus.Unfinished:
+            self.lbl_patch_status_3.setText(f"Your patch was interrupted. Please reapply.")
+        elif patch_status == PatchStatus.DllNotFound:
+            self.lbl_patch_status_3.setText(f"Your DLL is missing. Please reapply.")
 
 
 
     def pipe_output(self):
-        sys.stdout = Stream(newText=self.onUpdateText)
-        sys.stderr = Stream(newText=self.onUpdateText)
+        if not util.is_script:
+            sys.stdout = Stream(newText=self.onUpdateText)
+            sys.stderr = Stream(newText=self.onUpdateText)
     
     def onUpdateText(self, text):
         self.plainTextEdit.moveCursor(QTextCursor.End)
@@ -111,10 +141,19 @@ class patcher_widget(QWidget):
     
     def clean_thread(self):
         self.background_thread = False
+
+        if self.error:
+            print(self.traceback)
+            if self.error_handler:
+                self.error_handler(self.error)
+
+        self.error_handler = None
+        self.error = None
+        self.traceback = None
         self.btn_patch.setEnabled(True)
         self.btn_revert.setEnabled(True)
 
-    def try_start_thread(self, func):
+    def try_start_thread(self, func, error_handler=None):
         if self.background_thread:
             return
         
@@ -126,8 +165,9 @@ class patcher_widget(QWidget):
         self.btn_revert.setEnabled(False)
         
         self.background_thread = True
+        self.error_handler = error_handler
         self.thread_ = QThread()
-        self.worker = Worker(func)
+        self.worker = Worker(func, self)
         
         self.worker.moveToThread(self.thread_)
         self.thread_.started.connect(self.worker.run)
@@ -145,10 +185,23 @@ class patcher_widget(QWidget):
         else:
             dll_name = 'uxtheme.dll'
 
-        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name))
+        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name), error_handler=self.patch_error)
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
+
+    def closeEvent(self, event):
+        if self.background_thread:
+            QMessageBox.critical(self, "Cannot Close", "Please wait for the patcher to finish.", QMessageBox.Ok)
+            event.ignore()
+            return
+    
+    def patch_error(self, e):
+        if isinstance(e, SqliteError):
+            res = QMessageBox.warning(self, "Database Error", "An error occurred while patching the game's database.<br>It may be invalid. Do you want to redownload the database?", QMessageBox.Yes | QMessageBox.No)
+            if res == QMessageBox.Yes:
+                self.try_start_thread(lambda: util.redownload_mdb())
+
 
     def setupUi(self):
         if not self.objectName():
@@ -221,7 +274,7 @@ class patcher_widget(QWidget):
         self.verticalLayout.addItem(self.verticalSpacer)
 
         # Handle DLL choice
-        dll_name = settings['dll_name']
+        dll_name = settings.dll_name
         if dll_name == 'version.dll':
             self.rbt_version.setChecked(True)
         else:

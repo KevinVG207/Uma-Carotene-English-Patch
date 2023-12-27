@@ -14,6 +14,8 @@ import win32gui
 import win32process
 import win32api
 import win32con
+import lz4.frame
+import time
 
 relative_dir = os.path.abspath(os.getcwd())
 unpack_dir = relative_dir
@@ -64,7 +66,8 @@ ASSETS_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assets\\"
 ASSEMBLY_FOLDER = TL_PREFIX + "assembly\\"
 ASSEMBLY_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assembly\\"
 
-TABLE_BACKUP_PREFIX = "patch_backup_"
+TABLE_PREFIX = '_carotene'
+TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
@@ -240,15 +243,29 @@ def get_latest_json():
 
     return LATEST_DATA
 
-def download_file(url, path):
+LATEST_DLL_DATA = None
+def get_latest_dll_json():
+    global LATEST_DLL_DATA
+
+    if not LATEST_DLL_DATA:
+        LATEST_DLL_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotenify')
+
+    return LATEST_DLL_DATA
+
+def download_file(url, path, no_progress=False):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(path, "wb") as f:
             bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
-            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
+            if no_progress:
+                progress_bar = None
+            else:
+                progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
             for chunk in r.iter_content(chunk_size=8192):
-                progress_bar.update(len(chunk))
                 f.write(chunk)
+
+                if progress_bar:
+                    progress_bar.update(len(chunk))
 
 def download_latest():
     print("Downloading latest translation files")
@@ -286,14 +303,14 @@ def download_latest():
     
     shutil.rmtree(TMP_FOLDER)
 
-    print("Done")
+    # print("Done")
     return ver
 
 def clean_download():
     print("Removing temporary files")
     if os.path.exists(TL_PREFIX):
         shutil.rmtree(TL_PREFIX)
-    print("Done")
+    # print("Done")
 
 def tqdm(*args, **kwargs):
     if not kwargs.get('bar_format'):
@@ -332,3 +349,53 @@ def run_widget(widget, *args, **kwargs):
     widget.show()
     APPLICATION.exec_()
     return
+
+def download_lz4(url, mdb_path):
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        lz4_context = lz4.frame.create_decompression_context()
+        with open(mdb_path, "wb") as f:
+            bar_format = TQDM_FORMAT + " {n_fmt}/{total_fmt}"
+            progress_bar = tqdm(total=int(r.headers.get('Content-Length', 0)), unit='B', unit_scale=True, desc=f"Downloading", bar_format=bar_format)
+            for chunk in r.iter_content(chunk_size=4096):
+                progress_bar.update(len(chunk))
+                chunk, _, _ = lz4.frame.decompress_chunk(lz4_context, chunk)
+                f.write(chunk)
+
+def redownload_mdb():
+    # Find the url of the latest mdb
+    with MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT h FROM a WHERE n = 'master.mdb.lz4';")
+        row = cursor.fetchone()
+    
+    if not row:
+        raise Exception("master.mdb.lz4 not found in meta")
+    
+    asset_hash = row[0]
+
+    # Backup the existing mdb
+    mdb_path = MDB_PATH
+    mdb_path_bak = f'{mdb_path}.{int(time.time())}.bak'
+    shutil.copy(mdb_path, mdb_path_bak)
+
+    # Download the mdb
+    url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Generic/{0:.2}/{0}'.format(asset_hash)
+    download_lz4(url, mdb_path)
+    print("=== Downloaded latest master.mdb. You may now apply the patch again. ===")
+
+def download_asset(hash, no_progress=False):
+    asset_path = get_asset_path(hash)
+    if os.path.exists(asset_path):
+        return
+    
+    print_str = f"Downloading missing asset {hash}"
+    if no_progress:
+        print_str = "\n" + print_str
+    
+    print(print_str)
+
+    os.makedirs(os.path.dirname(asset_path), exist_ok=True)
+
+    url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Windows/assetbundles/{0:.2}/{0}'.format(hash)
+    
+    download_file(url, asset_path, no_progress=no_progress)
