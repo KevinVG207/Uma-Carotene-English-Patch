@@ -104,6 +104,10 @@ def get_current_patch_ver():
 
     # Not installed
     if not is_installed:
+        if mdb_ver:
+            # The mdb is marked as translated, but the patch was not installed.
+            return "partial", None
+
         # Nothing is installed
         return None, None
     
