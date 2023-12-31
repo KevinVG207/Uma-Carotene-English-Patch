@@ -10,6 +10,7 @@ import tqdm as _tqdm
 import sys
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtGui import QIcon
+from fontTools.ttLib import TTFont
 import win32gui
 import win32process
 import win32api
@@ -399,3 +400,40 @@ def download_asset(hash, no_progress=False):
     url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Windows/assetbundles/{0:.2}/{0}'.format(hash)
     
     download_file(url, asset_path, no_progress=no_progress)
+
+def prepare_font():
+    print("Loading font.")
+
+    with MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT h FROM a WHERE n = 'font/dynamic01.otf'")
+        row = cursor.fetchone()
+    
+    if not row:
+        raise Exception("Font not found in meta db.")
+
+    font_hash = row[0]
+    
+    font_path = MDB_FOLDER_EDITING + "font/dynamic01.otf"
+    os.makedirs(os.path.dirname(font_path), exist_ok=True)
+
+    if not os.path.exists(font_path):
+        shutil.copy(get_asset_path(font_hash), font_path)
+
+    return TTFont(font_path)
+
+def get_text_width(text, ttfont):
+    t = ttfont.getBestCmap()
+    s = ttfont.getGlyphSet()
+
+    tot = 0
+    for char in text:
+        try:
+            a = ord(char)
+            b = t[a]
+            c = s[b]
+            tot += c.width
+        except KeyError:
+            # Char not found in font
+            pass
+
+    return tot
