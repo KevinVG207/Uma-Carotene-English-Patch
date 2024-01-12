@@ -17,6 +17,10 @@ import win32api
 import win32con
 import lz4.frame
 import time
+import glob
+import pyphen
+
+hyphen_dict = pyphen.Pyphen(lang='en_US')
 
 relative_dir = os.path.abspath(os.getcwd())
 unpack_dir = relative_dir
@@ -60,6 +64,12 @@ INTERMEDIATE_PREFIX = get_asset("editing\\")
 
 MDB_FOLDER = TL_PREFIX + "mdb\\"
 MDB_FOLDER_EDITING = INTERMEDIATE_PREFIX + "mdb\\"
+
+def get_tl_mdb_jsons():
+    mdb_jsons = glob.glob(MDB_FOLDER + "*.json")
+    mdb_jsons += glob.glob(MDB_FOLDER + "**\\*.json")
+    return mdb_jsons
+
 
 ASSETS_FOLDER = TL_PREFIX + "assets\\"
 ASSETS_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assets\\"
@@ -402,8 +412,6 @@ def download_asset(hash, no_progress=False):
     download_file(url, asset_path, no_progress=no_progress)
 
 def prepare_font():
-    print("Loading font.")
-
     with MetaConnection() as (conn, cursor):
         cursor.execute("SELECT h FROM a WHERE n = 'font/dynamic01.otf'")
         row = cursor.fetchone()
@@ -421,19 +429,90 @@ def prepare_font():
 
     return TTFont(font_path)
 
-def get_text_width(text, ttfont):
-    t = ttfont.getBestCmap()
-    s = ttfont.getGlyphSet()
+CACHED_FONT_DATA = {}
+def get_font_data(ttfont):
+    if not CACHED_FONT_DATA.get(ttfont):
+        t = ttfont.getBestCmap()
+        s = ttfont.getGlyphSet()
+        CACHED_FONT_DATA[ttfont] = (t, s)
+    
+    return CACHED_FONT_DATA[ttfont]
 
+CACHED_CHAR_DATA = {}
+def _get_char_width(char, ttfont):
+    key = (ttfont, char)
+    if not CACHED_CHAR_DATA.get(key):
+        t, s = get_font_data(ttfont)
+        a = ord(char)
+        b = t[a]
+        c = s[b]
+        CACHED_CHAR_DATA[key] = c.width
+
+    return CACHED_CHAR_DATA[key]
+
+
+def get_text_width(text, ttfont, scale=1.0):
     tot = 0
     for char in text:
         try:
-            a = ord(char)
-            b = t[a]
-            c = s[b]
-            tot += c.width
+            tot += _get_char_width(char, ttfont) * scale
         except KeyError:
             # Char not found in font
             pass
 
     return tot
+
+def wrap_text_to_width(text, width, ttfont, scale=1.0, hyphen=True):
+    global hyphen_dict
+
+    words = text.split(" ")
+    lines = []
+    cur_line = ""
+    for word in words:
+        tmp_line = cur_line + " " + word if cur_line else word
+
+        if get_text_width(tmp_line, ttfont, scale) <= width:
+            cur_line = tmp_line
+        else:
+            if not hyphen:
+                lines.append(cur_line)
+                cur_line = word
+                continue
+
+            # Try to hyphenate
+            hyphenations = list(hyphen_dict.iterate(word))
+            if not hyphenations:
+                lines.append(cur_line)
+                cur_line = word
+            else:
+                hyphenated = False
+                for hyphenation in hyphenations:
+
+                    # Skip 1-2 letter hyphenations
+                    if any(len(h) <= 2 for h in hyphenation):
+                        continue
+
+                    tmp_line = cur_line + " " + hyphenation[0] + "-" if cur_line else hyphenation[0] + "-"
+                    if get_text_width(tmp_line, ttfont, scale) <= width:
+                        lines.append(tmp_line)
+                        cur_line = hyphenation[1]
+                        hyphenated = True
+                        break
+                if not hyphenated:
+                    lines.append(cur_line)
+                    cur_line = word
+
+    if cur_line:
+        lines.append(cur_line)
+
+    return "\n".join(lines)
+
+def split_mdb_path(path):
+    rel_path = os.path.relpath(path, MDB_FOLDER)
+    path_segments = os.path.normpath(rel_path).rsplit(".", 1)[0].split(os.sep)
+    return tuple(path_segments)
+
+def add_period(text):
+    if not text.endswith('.') and not text.endswith('.)'):
+        text += '.'
+    return text
