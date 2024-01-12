@@ -138,46 +138,14 @@ def get_current_patch_ver():
     # The patch is installed.
     return cur_patch_ver, cur_dll_ver
 
-def add_slogan_tag(text):
-    return "<slogan>" + text
-
-def add_scale_tag(text, max_width):
-    cur_width = util.get_text_width(text, FONT)
-    if cur_width <= max_width:
-        return text
-    
-    scale_factor = math.floor(max_width / cur_width * 100)
-
-    return f"<ssc>{scale_factor}<esc>{text}"
-
-PP_FUNCS = {
-    # Slogans
-    ("text_data", "144"): (add_slogan_tag, None),
-    
-    # Support cards
-    ("text_data", "76"): (add_scale_tag, (14800,)),
-
-    # Outfits
-    ("text_data", "5"): (add_scale_tag, (14800,)),
-
-    # Chara names
-    ("text_data", "6"): (add_scale_tag, (9500,)),
-    ("text_data", "77"): (add_scale_tag, (9500,)),
-    ("text_data", "78"): (add_scale_tag, (9500,)),
-    ("text_data", "170"): (add_scale_tag, (9500,)),
-}
 
 def import_mdb():
-    global FONT
-    FONT = util.prepare_font()
-
-    mdb_jsons = glob.glob(util.MDB_FOLDER + "\\**\\*.json")
+    mdb_jsons = util.get_tl_mdb_jsons()
 
     with util.MDBConnection() as (conn, cursor):
         for mdb_json in util.tqdm(mdb_jsons, desc="Importing MDB"):
-            path_segments = os.path.normpath(mdb_json).rsplit(".", 1)[0].split(os.sep)
-            category = path_segments[-1]
-            table = path_segments[-2]
+            key = util.split_mdb_path(mdb_json)
+            table = key[0]
 
             # Backup the table
             cursor.execute(f"CREATE TABLE IF NOT EXISTS {util.TABLE_BACKUP_PREFIX}{table} AS SELECT * FROM {table};")
@@ -186,23 +154,35 @@ def import_mdb():
             data = util.load_json(mdb_json)
 
             for index, entry in data.items():
-                if table != "text_data":
-                    # TODO: Implement other tables
+                text = None
+                if entry.get('processed'):
+                    text = entry['processed']
+                elif entry.get('text'):
+                    text = entry['text']
+                
+                if not text:
+                    print(f"Skipping {table} {index} - No text found")
                     continue
 
-                key = (table, category)
-                if key in PP_FUNCS:
-                    pp_func, pp_args = PP_FUNCS[key]
-
-                    if pp_args:
-                        entry["text"] = pp_func(entry["text"], *pp_args)
-                    else:
-                        entry["text"] = pp_func(entry["text"])
-
-                cursor.execute(
-                    f"""UPDATE {table} SET text = ? WHERE category = ? and `index` = ?;""",
-                    (entry['text'], category, index)
-                )
+                ## Vars that can be used:
+                # text
+                # table
+                # key (Holds table and subcategories)
+                # index
+                
+                match table:
+                    # TODO: Implement other tables
+                    case "text_data":
+                        category = key[1]
+                        cursor.execute(
+                            f"""UPDATE {table} SET text = ? WHERE category = ? and `index` = ?;""",
+                            (text, category, index)
+                        )
+                    case "race_jikkyo_message":
+                        cursor.execute(
+                            f"""UPDATE {table} SET message = ? WHERE id = ?;""",
+                            (text, index)
+                        )
 
         conn.commit()
         cursor.execute("VACUUM;")
