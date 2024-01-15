@@ -411,9 +411,9 @@ def import_assets():
 
         asset_dict[asset_type].append(asset_data)
 
-    import_flash(asset_dict['flash'])
-    import_textures(asset_dict['texture'])
-    import_stories(asset_dict['story'])
+    import_flash(asset_dict.get('flash', []))
+    import_textures(asset_dict.get('texture', []))
+    import_stories(asset_dict.get('story', []))
 
 
 def _import_jpdict():
