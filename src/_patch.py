@@ -288,6 +288,43 @@ def import_textures(texture_asset_metadatas):
         _ = list(util.tqdm(pool.imap_unordered(_import_texture, texture_asset_metadatas, chunksize=16), total=len(texture_asset_metadatas), desc="Importing textures"))
 
 
+def _import_flash(flash_metadata):
+    hash = flash_metadata['hash']
+    asset_path = handle_backup(hash)
+
+    if not asset_path:
+        return
+    
+    asset_bundle = unity.load_asset(asset_path)
+
+    for path_id, mpl_dict in flash_metadata['data'].items():
+        obj = asset_bundle.assets[0].files[int(path_id)]
+        tree = obj.read_typetree()
+
+        for mpl_id, tpl_dict in mpl_dict.items():
+            for tpl_name, tp_data in tpl_dict.items():
+                # Find textparameter data.
+                for mp_data in tree['_motionParameterGroup']['_motionParameterList']:
+                    if mp_data['_id'] == mpl_id:
+                        for tp_dict in mp_data['_textParamList']:
+                            if tp_dict['_objectName'] == tpl_name:
+                                # Replace textparameter data.
+                                tp_dict.update(tp_data)
+                                break
+                        break
+        
+        obj.save_typetree(tree)
+
+    with open(asset_path, "wb") as f:
+        f.write(asset_bundle.file.save(packer="original"))
+
+
+def import_flash(flash_metadatas):
+    print(f"Replacing {len(flash_metadatas)} flash files.")
+
+    for flash_metadata in util.tqdm(flash_metadatas, desc="Import. flash TLs"):
+        _import_flash(flash_metadata)
+
 def _import_story(story_data):
     bundle_path = handle_backup(story_data['hash'])
 
@@ -356,6 +393,7 @@ def import_assets():
     clean_asset_backups()
 
     jsons = glob.glob(util.ASSETS_FOLDER + "\\**\\*.json", recursive=True)
+    jsons += glob.glob(util.FLASH_FOLDER + "\\**\\*.json", recursive=True)
 
     with Pool() as pool:
         results = list(util.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for assets"))
@@ -373,6 +411,7 @@ def import_assets():
 
         asset_dict[asset_type].append(asset_data)
 
+    import_flash(asset_dict['flash'])
     import_textures(asset_dict['texture'])
     import_stories(asset_dict['story'])
 
