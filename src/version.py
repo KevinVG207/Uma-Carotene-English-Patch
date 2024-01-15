@@ -9,7 +9,7 @@ import threading
 import sys
 from urllib.parse import urlparse
 
-VERSION = (0, 1, 5)
+VERSION = (0, 1, 6)
 
 def version_to_string(version):
     return "v" + ".".join(str(v) for v in version)
