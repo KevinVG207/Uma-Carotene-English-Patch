@@ -131,16 +131,16 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>40</y>
+     <y>30</y>
      <width>121</width>
-     <height>71</height>
+     <height>81</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
      <widget class="QLabel" name="lbl_dll">
       <property name="text">
-       <string notr="true">DLL name:</string>
+       <string notr="true">DLL name:&lt;br&gt;(Ignore if using TLG)</string>
       </property>
      </widget>
     </item>
