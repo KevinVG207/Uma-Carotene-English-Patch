@@ -89,6 +89,14 @@ def revert_assembly(dl_latest=False):
             if os.path.exists(bak_path):
                 print(f"Restoring previous {dll_name}")
                 shutil.move(bak_path, dll_path)
+        
+        tlg_config_bak = settings.tlg_config_bak
+        if tlg_config_bak:
+            tlg_config_path = os.path.join(game_folder, tlg_config_bak)
+            if os.path.exists(tlg_config_path):
+                print(f"Restoring previous {tlg_config_bak}")
+                shutil.move(tlg_config_path, tlg_config_path[:-len(util.DLL_BACKUP_SUFFIX)])
+            settings.tlg_config_bak = None
 
     else:
         print(f"Keeping dll")

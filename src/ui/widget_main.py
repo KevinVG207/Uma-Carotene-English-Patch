@@ -247,13 +247,13 @@ class patcher_widget(QWidget):
 
         self.verticalLayoutWidget = QWidget(self)
         self.verticalLayoutWidget.setObjectName(u"verticalLayoutWidget")
-        self.verticalLayoutWidget.setGeometry(QRect(10, 40, 121, 71))
+        self.verticalLayoutWidget.setGeometry(QRect(10, 30, 121, 81))
         self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.lbl_dll = QLabel(self.verticalLayoutWidget)
         self.lbl_dll.setObjectName(u"lbl_dll")
-        self.lbl_dll.setText(u"DLL name:")
+        self.lbl_dll.setText(u"DLL name:<br>(Ignore if using TLG)")
 
         self.verticalLayout.addWidget(self.lbl_dll)
 
