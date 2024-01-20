@@ -10,6 +10,7 @@ from sqlite3 import Error as SqliteError
 from PIL import Image, ImageFile
 from settings import settings
 import math
+import json
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -454,6 +455,67 @@ def _import_hashed():
     return lines
 
 
+def check_tlg(config_path):
+    base_path = os.path.dirname(config_path)
+    version_path = os.path.join(base_path, "version.dll")
+    uxtheme_path = os.path.join(base_path, "uxtheme.dll")
+    if not os.path.exists(config_path):
+        return False
+    
+    try:
+        config = util.load_json(config_path)
+        if 'maxFps' in config:
+            dll_path = None
+            if os.path.exists(version_path):
+                dll_path = version_path
+            elif os.path.exists(uxtheme_path):
+                dll_path = uxtheme_path
+
+            if dll_path:
+                with open(dll_path, "rb") as f:
+                    data = f.read()
+                    if b"Trainer's Legend G" in data:
+                        return True
+    except:
+        return False
+    
+    return False
+
+
+def fix_tlg_config(config_path, dll_name):
+    tlg_data = util.load_json(config_path)
+    if not 'loadDll' in tlg_data:
+        tlg_data['loadDll'] = []
+    
+    if dll_name not in tlg_data['loadDll']:
+        tlg_data['loadDll'].append(dll_name)
+    
+    # Disable TLG text/asset replacement
+    if 'replaceFont' in tlg_data:
+        tlg_data['replaceFont'] = False
+    if 'extraAssetBundlePaths' in tlg_data:
+        tlg_data['extraAssetBundlePaths'] = []
+    if 'replaceAssets' in tlg_data:
+        tlg_data['replaceAssets'] = False
+    if 'dicts' in tlg_data:
+        tlg_data['dicts'] = []
+    if 'static_dict' in tlg_data:
+        tlg_data['static_dict'] = ""
+    if 'stories_path' in tlg_data:
+        tlg_data['stories_path'] = ""
+    if 'text_data_dict' in tlg_data:
+        tlg_data['text_data_dict'] = ""
+    if 'character_system_text_dict' in tlg_data:
+        tlg_data['character_system_text_dict'] = ""
+    if 'race_jikkyo_comment_dict' in tlg_data:
+        tlg_data['race_jikkyo_comment_dict'] = ""
+    if 'race_jikkyo_message_dict' in tlg_data:
+        tlg_data['race_jikkyo_message_dict'] = ""
+
+    with open(config_path, "w") as f:
+        json.dump(tlg_data, f, indent=4)
+
+
 def import_assembly(dl_latest=False, dll_name='version.dll'):
     print("Importing assembly text...")
 
@@ -509,6 +571,27 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
                 print(f"Reverting existing {prev_bak}")
                 shutil.move(prev_bak_path, prev_path)
         
+
+        # Check for tlg
+        tlg_config_path = os.path.join(game_folder, "config.json")
+        if check_tlg(tlg_config_path):
+            print("TLG detected.")
+            dll_name = "carotene.dll"
+
+            config_bak_path = tlg_config_path + util.DLL_BACKUP_SUFFIX
+            if not os.path.exists(config_bak_path):
+                print("Backing up existing config.json")
+                shutil.copy(tlg_config_path, config_bak_path)
+            else:
+                print("Reverting existing config.json before patching.")
+                shutil.copy(config_bak_path, tlg_config_path)
+            settings.tlg_config_bak = os.path.basename(config_bak_path)
+
+            fix_tlg_config(tlg_config_path, dll_name)
+
+        else:
+            print("TLG not detected.")
+
 
         dll_path = os.path.join(game_folder, dll_name)
         bak_path = dll_path + util.DLL_BACKUP_SUFFIX

@@ -9,7 +9,8 @@ default_settings = {
     'dll_name': None,
     'dll_version': None,
     'installed': False,
-    'install_started': False
+    'install_started': False,
+    'tlg_config_bak': None,
 }
 
 class Settings:
@@ -62,6 +63,14 @@ class Settings:
     @dll_name.setter
     def dll_name(self, value):
         self['dll_name'] = value
+
+    @property
+    def tlg_config_bak(self):
+        return self['tlg_config_bak']
+    
+    @tlg_config_bak.setter
+    def tlg_config_bak(self, value):
+        self['tlg_config_bak'] = value
     
     def _load(self):
         # print("Loading settings")
