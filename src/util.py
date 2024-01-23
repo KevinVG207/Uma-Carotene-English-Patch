@@ -307,7 +307,6 @@ def download_latest(ignore_filesize=False):
         raise Exception("No translations zip found")
     
     if not ignore_filesize:
-        dl_asset['size'] = 100000000000000
         # Check if we have enough space
         enough, err = check_enough_space(int(dl_asset['size']))
         if not enough:
