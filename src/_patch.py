@@ -6,6 +6,7 @@ from multiprocessing.pool import Pool
 import io
 import version
 import unity
+from UnityPy.enums import TextureFormat
 from sqlite3 import Error as SqliteError
 from PIL import Image, ImageFile
 from settings import settings
@@ -217,12 +218,13 @@ def create_new_image_from_path_id(asset_bundle, path_id, diff_path):
         diff_bytes = f.read()
     
     # Apply the diff
-    max_len = max(len(diff_bytes), len(source_bytes))
+    new_bytes = util.apply_diff(source_bytes, diff_bytes)
+    # max_len = max(len(diff_bytes), len(source_bytes))
 
-    diff_bytes = diff_bytes.ljust(max_len, b'\x00')
-    source_bytes = source_bytes.ljust(max_len, b'\x00')
+    # diff_bytes = diff_bytes.ljust(max_len, b'\x00')
+    # source_bytes = source_bytes.ljust(max_len, b'\x00')
 
-    new_bytes = util.xor_bytes(diff_bytes, source_bytes)
+    # new_bytes = util.xor_bytes(diff_bytes, source_bytes)
 
     return new_bytes, texture_read
 
@@ -274,6 +276,7 @@ def _import_texture(asset_metadata):
         new_image = Image.open(new_image_buffer)
 
         # Replace the image
+        texture_read.m_TextureFormat = TextureFormat.BC7
         texture_read.image = new_image
         texture_read.save()
 
@@ -284,6 +287,7 @@ def _import_texture(asset_metadata):
 
 def import_textures(texture_asset_metadatas):
     print(f"Replacing {len(texture_asset_metadatas)} textures.")
+    texture_asset_metadatas = [a[0] for a in texture_asset_metadatas]
 
     with Pool() as pool:
         _ = list(util.tqdm(pool.imap_unordered(_import_texture, texture_asset_metadatas, chunksize=16), total=len(texture_asset_metadatas), desc="Importing textures"))
@@ -322,9 +326,17 @@ def _import_flash(flash_metadata):
 
 def import_flash(flash_metadatas):
     print(f"Replacing {len(flash_metadatas)} flash files.")
+    flash_metadatas = [a[0] for a in flash_metadatas]
 
     for flash_metadata in util.tqdm(flash_metadatas, desc="Import. flash TLs"):
         _import_flash(flash_metadata)
+
+def set_clip_length(root, clip_asset_path_id, length_diff):
+    clip_asset = root.assets_file.files[clip_asset_path_id]
+    clip_tree = clip_asset.read_typetree()
+    clip_tree['ClipLength'] += length_diff
+    clip_asset.save_typetree(clip_tree)
+
 
 def _import_story(story_data):
     bundle_path = handle_backup(story_data['hash'])
@@ -342,49 +354,117 @@ def _import_story(story_data):
         raise NotImplementedError("Race stories(?) not implemented yet.")
     
     tree['Title'] = story_data['title']
+    # org_typewritespeed = tree['TypewriteCountPerSecond']
+    tree['TypewriteCountPerSecond'] *= 3
 
-    for new_block in story_data['data']:
-        block_object = root.assets_file.files[new_block['path_id']]
-        block_data = block_object.read_typetree()
+    for new_clip in story_data['data']:
+        block_data = tree['BlockList'][new_clip['block_id']]
+        text_clip = root.assets_file.files[new_clip['path_id']]
+        text_clip_data = text_clip.read_typetree()
 
-        block_data['Text'] = '<story>' + new_block['text']
-        block_data['Name'] = new_block['name']
+        if not text_clip_data['Text']:
+            # Skip untranslated blocks.
+            continue
 
-        if new_block.get('clip_length'):
-            block_data['ClipLength'] = new_block['clip_length']
+        text_clip_data['Text'] = new_clip.get('processed') or new_clip['text']
+        text_clip_data['Name'] = new_clip.get('name_processed') or new_clip['name']
+
+        # Handle colored text.
+        if new_clip.get('color_list') and text_clip_data.get('ColorTextInfoList'):
+            new_color_list = []
+            for color_info in new_clip['color_list']:
+                new_color_list.append({
+                    'Text': color_info['text'],
+                    'FontColor': int(color_info['color_id']),
+                })
+            text_clip_data['ColorTextInfoList'] = new_color_list
         
-        if new_block.get('choices'):
-            for i, choice in enumerate(block_data['ChoiceDataList']):
-                choice['Text'] = new_block['choices'][i]['text']
+        if new_clip.get('choices'):
+            for i, choice in enumerate(text_clip_data['ChoiceDataList']):
+                choice_data = new_clip['choices'][i]
+                choice['Text'] = choice_data.get('processed') or choice_data['text']
         
-        org_clip_length = block_data['ClipLength']
-        new_clip_length = new_block['clip_length']
+        org_clip_length = text_clip_data['ClipLength']
+        new_clip_length = new_clip['clip_length']
+
+        if org_clip_length == new_clip_length:
+            txt_len = len(new_clip['text'])
+            new_clip_length = int(text_clip_data['WaitFrame'] + max(txt_len, text_clip_data['VoiceLength']))
         
         if new_clip_length > org_clip_length:
-            block_data['ClipLength'] = new_clip_length
-            new_block_length = new_clip_length + block_data['StartFrame'] + 1
-            tree['BlockList'][new_block['block_id']]['BlockLength'] = new_block_length
-        
-            if new_block.get('anim_data'):
-                for anim in new_block['anim_data']:
-                    new_anim_length = anim['orig_length'] + new_clip_length - org_clip_length
-                    if new_anim_length > anim['orig_length']:
-                        anim_asset = root.assets_file.files[anim['path_id']]
-                        anim_tree = anim_asset.read_typetree()
-                        anim_tree['ClipLength'] = new_anim_length
-                        anim_asset.save_typetree(anim_tree)
+            text_clip_data['ClipLength'] = new_clip_length
+            old_block_length = block_data['BlockLength']
+            new_block_length = new_clip_length + text_clip_data['StartFrame'] + 1
+            block_data['BlockLength'] = new_block_length
 
-        block_object.save_typetree(block_data)
+            # Adjust anim lengths
+            for track in block_data['CharacterTrackList']:
+                for track_type, track_data in track.items():
+                    if not track_type.endswith('MotionTrackData'):
+                        continue
+                    if not track_data['ClipList']:
+                        continue
+                    clip_path_id = track_data['ClipList'][-1]['m_PathID']
+                    clip_asset = root.assets_file.files[clip_path_id]
+                    clip_tree = clip_asset.read_typetree()
+                    tmp_clip_length = clip_tree['ClipLength'] + new_clip_length - org_clip_length
+                    clip_tree['ClipLength'] = tmp_clip_length
+                    clip_asset.save_typetree(clip_tree)
+            
+            # Screen effects
+            for track in block_data['ScreenEffectTrackList']:
+                if not track['ClipList']:
+                    continue
+                clip_path_id = track['ClipList'][-1]['m_PathID']
+                clip_asset = root.assets_file.files[clip_path_id]
+                clip_tree = clip_asset.read_typetree()
 
+                if clip_tree['StartFrame'] + clip_tree['ClipLength'] < old_block_length:
+                    continue
+
+                tmp_clip_length = clip_tree['ClipLength'] + new_clip_length - org_clip_length
+                clip_tree['ClipLength'] = tmp_clip_length
+                clip_asset.save_typetree(clip_tree)
+
+        text_clip.save_typetree(text_clip_data)
+
+    tree['Length'] = sum([block_data['BlockLength'] for block_data in tree['BlockList']])
     root.save_typetree(tree)
 
     with open(bundle_path, "wb") as f:
         f.write(asset_bundle.file.save(packer="original"))
+    
+    # Handle ruby text.
+    ruby_file_name = file_name.replace("storytimeline", "ast_ruby")
+    with util.MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT h FROM a WHERE n = ?;", (ruby_file_name,))
+        ruby_hash = cursor.fetchone()
+    
+    if not ruby_hash:
+        # No ruby asset for this story.
+        return
+
+    ruby_path = handle_backup(ruby_hash[0])
+    ruby_bundle = unity.load_asset(ruby_path)
+    ruby_root = list(ruby_bundle.container.values())[0].get_obj()
+    ruby_tree = ruby_root.read_typetree()
+
+    if 'DataArray' not in ruby_tree:
+        # No ruby text to replace.
+        return
+    ruby_tree['DataArray'] = []
+
+    ruby_root.save_typetree(ruby_tree)
+
+    with open(ruby_path, "wb") as f:
+        f.write(ruby_bundle.file.save(packer="original"))
+
 
 def import_stories(story_datas):
     #TODO: Increase chunk size (maybe 16?) when more stories are added.
+    story_datas = [a[0] for a in story_datas]
     with Pool() as pool:
-        _ = list(util.tqdm(pool.imap_unordered(_import_story, story_datas, chunksize=2), total=len(story_datas), desc="Importing stories"))
+        _ = list(util.tqdm(pool.imap_unordered(_import_story, story_datas, chunksize=8), total=len(story_datas), desc="Importing stories"))
 
     # print(f"Replacing {len(story_datas)} stories.")
     # for story_data in story_datas:
@@ -393,24 +473,7 @@ def import_stories(story_datas):
 def import_assets():
     clean_asset_backups()
 
-    jsons = glob.glob(util.ASSETS_FOLDER + "\\**\\*.json", recursive=True)
-    jsons += glob.glob(util.FLASH_FOLDER + "\\**\\*.json", recursive=True)
-
-    with Pool() as pool:
-        results = list(util.tqdm(pool.imap_unordered(util.get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for assets"))
-
-    # asset_dict = {result[0]: result[1] for result in results if result[0]}
-    asset_dict = {}
-
-    for result in results:
-        asset_type, asset_data = result
-        if not asset_type:
-            continue
-
-        if asset_type not in asset_dict:
-            asset_dict[asset_type] = []
-
-        asset_dict[asset_type].append(asset_data)
+    asset_dict = util.get_assets_type_dict()
 
     import_flash(asset_dict.get('flash', []))
     import_textures(asset_dict.get('texture', []))
