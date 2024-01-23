@@ -724,7 +724,7 @@ def upgrade():
             conn.commit()
 
 
-def main(dl_latest=False, dll_name='version.dll'):
+def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
     print("=== Patching ===")
 
     if not os.path.exists(util.MDB_PATH):
@@ -732,7 +732,7 @@ def main(dl_latest=False, dll_name='version.dll'):
 
     ver = None
     if dl_latest:
-        ver = util.download_latest()
+        ver = util.download_latest(ignore_filesize)
 
     upgrade()
 

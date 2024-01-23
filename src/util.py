@@ -108,6 +108,10 @@ class MetaConnection(Connection):
     DB_PATH = META_PATH
 
 
+class NotEnoughSpaceException(Exception):
+    pass
+
+
 def load_json(path):
     if os.path.exists(path):
         with open(path, "r", encoding='utf-8') as f:
@@ -286,7 +290,7 @@ def download_file(url, path, no_progress=False):
                 if progress_bar:
                     progress_bar.update(len(chunk))
 
-def download_latest():
+def download_latest(ignore_filesize=False):
     print("Downloading latest translation files")
 
     cur_version = get_latest_json()
@@ -301,6 +305,13 @@ def download_latest():
 
     if not dl_asset:
         raise Exception("No translations zip found")
+    
+    if not ignore_filesize:
+        dl_asset['size'] = 100000000000000
+        # Check if we have enough space
+        enough, err = check_enough_space(int(dl_asset['size']))
+        if not enough:
+            raise NotEnoughSpaceException(err)
     
     print(f"Downloading {ver}")
 
@@ -640,3 +651,52 @@ def read_bytes(path):
 def write_bytes(data, path):
     with open(path, "wb") as f:
         f.write(data)
+
+def _check_enough_space(path, needed):
+    free_space = shutil.disk_usage(path).free
+
+    if free_space < needed:
+        return False, (path, needed, free_space)
+    
+    return True, None
+
+def check_enough_space(size):
+    app_folder = os.path.realpath(APP_DIR)
+    game_folder = os.path.realpath(DATA_PATH)
+
+    # Extract the windows drive letters.
+    app_drive = os.path.splitdrive(app_folder)[0]
+    game_drive = os.path.splitdrive(game_folder)[0]
+
+    failures = []
+
+    if app_drive == game_drive:
+        # Only check once.
+        needed = 2 * size
+        enough, err = _check_enough_space(app_drive, needed)
+        if not enough:
+            failures.append(err)
+    
+    else:
+        # app_drive needs 2x size
+        needed = 2 * size
+        enough, err = _check_enough_space(app_drive, needed)
+        if not enough:
+            failures.append(err)
+
+        enough, err = _check_enough_space(game_drive, size)
+        if not enough:
+            failures.append(err)
+    
+    if failures:
+        err_list = []
+        err_list.append("There may not be enough space on the following drives:<br>")
+
+        for err in failures:
+            err_list.append(f"{err[0]} {err[1] / 1024**3:.2f} GB needed, {err[2] / 1024**3:.2f} GB available")
+
+        err_list.append("<br>These are estimations, so you may still try to install.<br>Click the Patch/Update button again to force the patch.")
+
+        return False, "<br>".join(err_list)
+    
+    return True, None

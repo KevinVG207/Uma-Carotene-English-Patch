@@ -54,6 +54,7 @@ class patcher_widget(QWidget):
         self.error_handler = None
         self.error = None
         self.traceback = None
+        self.ignore_filesize = False
 
         self.setupUi()
         self.setFixedSize(self.size())
@@ -185,7 +186,7 @@ class patcher_widget(QWidget):
         else:
             dll_name = 'uxtheme.dll'
 
-        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name), error_handler=self.patch_error)
+        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize), error_handler=self.patch_error)
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
@@ -201,6 +202,13 @@ class patcher_widget(QWidget):
             res = QMessageBox.warning(self, "Database Error", "An error occurred while patching the game's database.<br>It may be invalid. Do you want to redownload the database?", QMessageBox.Yes | QMessageBox.No)
             if res == QMessageBox.Yes:
                 self.try_start_thread(lambda: util.redownload_mdb())
+        
+        if isinstance(e, util.NotEnoughSpaceException):
+            # Get error message
+            error_message = str(e)
+
+            res = QMessageBox.warning(self, "Not Enough Space", error_message, QMessageBox.Ok)
+            self.ignore_filesize = True
 
 
     def setupUi(self):
