@@ -20,6 +20,9 @@ import time
 import glob
 import pyphen
 from functools import cache
+from multiprocessing import Pool
+import re
+import hashlib
 
 hyphen_dict = pyphen.Pyphen(lang='en_US')
 
@@ -80,6 +83,8 @@ FLASH_FOLDER_EDITING = INTERMEDIATE_PREFIX + "flash\\"
 
 ASSEMBLY_FOLDER = TL_PREFIX + "assembly\\"
 ASSEMBLY_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assembly\\"
+
+DIFF_FOLDER = TL_PREFIX + "diff\\"
 
 TABLE_PREFIX = '_carotene'
 TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
@@ -210,7 +215,6 @@ def close_umamusume():
 
     return True
 
-
 def test_for_type(args):
     path, type = args
     data = load_json(path)
@@ -220,7 +224,7 @@ def test_for_type(args):
 
 def get_asset_and_type(path):
     data = load_json(path)
-    return (data.get('type'), data)
+    return (data.get('type'), data, path)
 
 def get_asset_path(asset_hash):
     return os.path.join(DATA_PATH, asset_hash[:2], asset_hash)
@@ -521,3 +525,118 @@ def add_nested_dict(d, path, value):
             d[key] = {}
         d = d[key]
     d[path[-1]] = value
+
+def get_assets_type_dict():
+    jsons = glob.glob(ASSETS_FOLDER + "\\**\\*.json", recursive=True)
+    jsons += glob.glob(FLASH_FOLDER + "\\**\\*.json", recursive=True)
+
+    with Pool() as pool:
+        results = list(tqdm(pool.imap_unordered(get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for assets"))
+
+    # asset_dict = {result[0]: result[1] for result in results if result[0]}
+    asset_dict = {}
+
+    for result in results:
+        asset_type, asset_data, path = result
+        if not asset_type:
+            continue
+
+        if asset_type not in asset_dict:
+            asset_dict[asset_type] = []
+
+        asset_dict[asset_type].append((asset_data, path))
+
+    return asset_dict
+
+def filter_tags(in_str):
+    # Remove any <> tags from string.
+    return re.sub(r'<[^>]*>', '', in_str)
+
+def remove_size_tags(str):
+    # Remove any <size=?> or </size> tags from string.
+    return re.sub(r"<size=[^>]*>|</size>", "", str)
+
+def process_colored_text(in_str):
+    color_list = []
+    used_text = set()
+
+    matches = re.findall(r"<col=[^>]*>.*?</col>", in_str)
+
+    for match_str in matches:
+        color_id = re.search(r"<col=([^>]*)>", match_str).group(1)
+        text = re.search(r"<col=[^>]*>(.*)</col>", match_str).group(1)
+
+        # Skip if text has already been colored.
+        if text in used_text:
+            continue
+
+        used_text.add(text)
+
+        color_list.append({
+            "text": text,
+            "color_id": int(color_id)
+        })
+    
+    # Remove all <col=?> and </col> tags from string.
+    in_str = re.sub(r"<col=[^>]*>|</col>", "", in_str)
+
+    return in_str, color_list
+
+def apply_colored_text(in_str, color_list):
+    if not color_list:
+        return in_str
+
+    for color_info in color_list:
+        match_str = color_info.get('Text') or color_info.get('text')
+        color_id = color_info.get('FontColor') or color_info.get('color_id')
+
+        if not match_str or not color_id:
+            raise Exception(f"Invalid color info {color_info}")
+
+        in_str = in_str.replace(match_str, f"<col={color_id}>{match_str}</col>")
+
+    return in_str
+
+def make_diff(edited_bytes, source_bytes):
+    hasher = hashlib.sha256()
+    hasher.update(edited_bytes)
+    edited_hash = hasher.digest()
+
+    hasher = hashlib.sha256()
+    hasher.update(source_bytes)
+    source_hash = hasher.digest()
+
+    max_len = max(len(edited_bytes), len(source_bytes))
+
+    gen = np.random.default_rng(seed=int(edited_hash.hex(), 16))
+    edited_bytes += gen.bytes(max_len - len(edited_bytes))
+    gen = np.random.default_rng(seed=int(source_hash.hex(), 16))
+    source_bytes += gen.bytes(max_len - len(source_bytes))
+
+    diff = xor_bytes(edited_bytes, source_bytes)
+
+    return diff
+
+def apply_diff(source_bytes, diff):
+    if len(diff) < len(source_bytes):
+        raise Exception("Diff is smaller than source")
+    
+    delta_len = len(diff) - len(source_bytes)
+
+    if delta_len > 0:
+        hasher = hashlib.sha256()
+        hasher.update(source_bytes)
+        source_hash = hasher.digest()
+
+        gen = np.random.default_rng(seed=int(source_hash.hex(), 16))
+        source_bytes += gen.bytes(delta_len)
+
+    return xor_bytes(source_bytes, diff)
+
+def read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+def write_bytes(data, path):
+    with open(path, "wb") as f:
+        f.write(data)
