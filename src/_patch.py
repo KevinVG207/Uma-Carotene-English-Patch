@@ -607,7 +607,7 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
 
     if dl_latest:
         print("Looking for latest mod version")
-        latest_data = util.get_latest_dll_json()
+        latest_data = util.get_latest_dll_json(settings.prerelease)
         print("Downloading patcher mod.")
 
         dll_url = None
@@ -732,7 +732,7 @@ def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
 
     ver = None
     if dl_latest:
-        ver = util.download_latest(ignore_filesize)
+        ver = util.download_latest(ignore_filesize, settings.prerelease)
 
     upgrade()
 

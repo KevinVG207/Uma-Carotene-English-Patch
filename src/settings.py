@@ -11,6 +11,7 @@ default_settings = {
     'installed': False,
     'install_started': False,
     'tlg_config_bak': None,
+    'prerelease': False
 }
 
 class Settings:
@@ -71,6 +72,14 @@ class Settings:
     @tlg_config_bak.setter
     def tlg_config_bak(self, value):
         self['tlg_config_bak'] = value
+
+    @property
+    def prerelease(self):
+        return self['prerelease']
+    
+    @prerelease.setter
+    def prerelease(self, value):
+        self['prerelease'] = value
     
     def _load(self):
         # print("Loading settings")
