@@ -66,8 +66,8 @@ class patcher_widget(QWidget):
     
     def update_patch_status(self):
         cur_patch_ver, cur_dll_ver = _patch.get_current_patch_ver()
-        latest_version_data = util.get_latest_json()
-        latest_dll_version_data = util.get_latest_dll_json()
+        latest_version_data = util.get_latest_json(settings.prerelease)
+        latest_dll_version_data = util.get_latest_dll_json(settings.prerelease)
 
         if not cur_patch_ver:
             patch_status = PatchStatus.Unpatched

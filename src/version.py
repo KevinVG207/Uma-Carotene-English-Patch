@@ -8,6 +8,7 @@ import os
 import threading
 import sys
 from urllib.parse import urlparse
+from settings import settings
 
 VERSION = (0, 1, 7)
 
@@ -25,7 +26,7 @@ def check_update():
         # Don't check for updates if we're running as a script
         return
     
-    latest_release = util.fetch_latest_github_release('KevinVG207', 'Uma-Carotene-English-Patch')
+    latest_release = util.fetch_latest_github_release('KevinVG207', 'Uma-Carotene-English-Patch', settings.prerelease)
 
     latest_version = string_to_version(latest_release['tag_name'])
 

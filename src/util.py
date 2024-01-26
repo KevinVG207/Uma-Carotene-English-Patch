@@ -239,14 +239,14 @@ def strings_numeric_key(item):
     return item
 
 
-def fetch_latest_github_release(username, repo):
+def fetch_latest_github_release(username, repo, prerelease=False):
     url = f'https://api.github.com/repos/{username}/{repo}/releases'
     r = requests.get(url)
     r.raise_for_status()
     data = r.json()
     cur_version = None
     for version in data:
-        if version['prerelease']:
+        if version['prerelease'] and not prerelease:
             continue
         cur_version = version
         break
@@ -258,20 +258,20 @@ def fetch_latest_github_release(username, repo):
 
 
 LATEST_DATA = None
-def get_latest_json():
+def get_latest_json(prerelease=False):
     global LATEST_DATA
 
     if not LATEST_DATA:
-        LATEST_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotene-TL')
+        LATEST_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotene-TL', prerelease)
 
     return LATEST_DATA
 
 LATEST_DLL_DATA = None
-def get_latest_dll_json():
+def get_latest_dll_json(prerelease=False):
     global LATEST_DLL_DATA
 
     if not LATEST_DLL_DATA:
-        LATEST_DLL_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotenify')
+        LATEST_DLL_DATA = fetch_latest_github_release('KevinVG207', 'Uma-Carotenify', prerelease)
 
     return LATEST_DLL_DATA
 
@@ -290,10 +290,10 @@ def download_file(url, path, no_progress=False):
                 if progress_bar:
                     progress_bar.update(len(chunk))
 
-def download_latest(ignore_filesize=False):
+def download_latest(ignore_filesize=False, prerelease=False):
     print("Downloading latest translation files")
 
-    cur_version = get_latest_json()
+    cur_version = get_latest_json(prerelease)
     
     ver = cur_version['tag_name']
     
