@@ -261,7 +261,7 @@ class patcher_widget(QWidget):
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.lbl_dll = QLabel(self.verticalLayoutWidget)
         self.lbl_dll.setObjectName(u"lbl_dll")
-        self.lbl_dll.setText(u"DLL name:<br>(Ignore if using TLG)")
+        self.lbl_dll.setText(u"DLL name:")
 
         self.verticalLayout.addWidget(self.lbl_dll)
 

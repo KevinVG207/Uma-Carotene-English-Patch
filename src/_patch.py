@@ -523,7 +523,7 @@ def check_tlg(config_path):
     version_path = os.path.join(base_path, "version.dll")
     uxtheme_path = os.path.join(base_path, "uxtheme.dll")
     if not os.path.exists(config_path):
-        return False
+        return None
     
     try:
         config = util.load_json(config_path)
@@ -538,20 +538,23 @@ def check_tlg(config_path):
                 with open(dll_path, "rb") as f:
                     data = f.read()
                     if b"Trainer's Legend G" in data:
-                        return True
+                        return os.path.basename(dll_path)
     except:
-        return False
+        return None
     
-    return False
+    return None
 
 
-def fix_tlg_config(config_path, dll_name):
+def fix_tlg_config(config_path):
     tlg_data = util.load_json(config_path)
     if not 'loadDll' in tlg_data:
         tlg_data['loadDll'] = []
     
-    if dll_name not in tlg_data['loadDll']:
-        tlg_data['loadDll'].append(dll_name)
+    if 'carotene.dll' in tlg_data['loadDll']:
+        tlg_data['loadDll'].remove('carotene.dll')
+    
+    if 'carrotjuicer.dll' in tlg_data['loadDll']:
+        tlg_data['loadDll'].remove('carrotjuicer.dll')
     
     # Disable TLG text/asset replacement
     if 'replaceFont' in tlg_data:
@@ -637,9 +640,10 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
 
         # Check for tlg
         tlg_config_path = os.path.join(game_folder, "config.json")
-        if check_tlg(tlg_config_path):
+        tlg_dll_name = check_tlg(tlg_config_path)
+        if tlg_dll_name:
             print("TLG detected.")
-            dll_name = "carotene.dll"
+            # dll_name = "carotene.dll"
 
             config_bak_path = tlg_config_path + util.DLL_BACKUP_SUFFIX
             if not os.path.exists(config_bak_path):
@@ -650,10 +654,20 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
                 shutil.copy(config_bak_path, tlg_config_path)
             settings.tlg_config_bak = os.path.basename(config_bak_path)
 
-            fix_tlg_config(tlg_config_path, dll_name)
+            fix_tlg_config(tlg_config_path)
+
+            # Rename the dll
+            tlg_dll_path = os.path.join(game_folder, tlg_dll_name)
+            tlg_new_path = os.path.join(game_folder, 'tlg.dll')
+
+            if os.path.exists(tlg_dll_path):
+                print(f"Renaming {tlg_dll_name} to tlg.dll")
+                shutil.move(tlg_dll_path, tlg_new_path)
+            
+            settings.tlg_orig_name = tlg_dll_name
 
         else:
-            print("TLG not detected.")
+            print("TLG not detected/does not need to be moved.")
 
 
         dll_path = os.path.join(game_folder, dll_name)
@@ -674,8 +688,11 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
         
 
 def upgrade():
-    prev_client = settings.client_version
+    prev_client = tuple(settings.client_version)
     cur_client = version.VERSION
+
+    # print(prev_client)
+    # print(cur_client)
 
     print("Checking for upgrade...")
 
@@ -722,6 +739,29 @@ def upgrade():
                         cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table};")
 
             conn.commit()
+    
+    if prev_client <= (0, 1, 9):
+        # Try to convert the old TLG system to the new one.
+        tlg_config_path = os.path.join(util.get_game_folder(), "config.json")
+        tlg_dll = check_tlg(tlg_config_path)
+        if tlg_dll:
+            print("TLG detected. Attempting to convert to new system.")
+            tlg_path = os.path.join(util.get_game_folder(), tlg_dll)
+            new_tlg_path = os.path.join(util.get_game_folder(), "tlg.dll")
+            if os.path.exists(tlg_path):
+                print(f"Renaming {tlg_dll} to tlg.dll")
+                shutil.move(tlg_path, new_tlg_path)
+                settings.tlg_orig_name = tlg_dll
+            
+            print("Removing carotene from TLG config.")
+            fix_tlg_config(tlg_config_path)
+        
+        if os.path.exists(os.path.join(util.get_game_folder(), "carotene.dll")):
+            print("Deleting carotene.dll")
+            os.remove(os.path.join(util.get_game_folder(), "carotene.dll"))
+            settings.dll_name = None
+
+        print("Upgrade complete.")
 
 
 def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
@@ -729,12 +769,12 @@ def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
 
     if not os.path.exists(util.MDB_PATH):
         raise SqliteError(f"MDB not found: {util.MDB_PATH}")
+    
+    upgrade()
 
     ver = None
     if dl_latest:
         ver = util.download_latest(ignore_filesize, settings.prerelease)
-
-    upgrade()
 
     settings.client_version = version.VERSION
     settings.install_started = True

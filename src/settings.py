@@ -11,7 +11,8 @@ default_settings = {
     'installed': False,
     'install_started': False,
     'tlg_config_bak': None,
-    'prerelease': False
+    'prerelease': False,
+    'tlg_orig_name': None
 }
 
 class Settings:
@@ -80,6 +81,14 @@ class Settings:
     @prerelease.setter
     def prerelease(self, value):
         self['prerelease'] = value
+
+    @property
+    def tlg_orig_name(self):
+        return self['tlg_orig_name']
+    
+    @tlg_orig_name.setter
+    def tlg_orig_name(self, value):
+        self['tlg_orig_name'] = value
     
     def _load(self):
         # print("Loading settings")
