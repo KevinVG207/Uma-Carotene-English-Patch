@@ -688,7 +688,11 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
         
 
 def upgrade():
-    prev_client = tuple(settings.client_version)
+    prev_client = settings.client_version
+    if not prev_client:
+        return
+
+    prev_client = tuple(prev_client)
     cur_client = version.VERSION
 
     # print(prev_client)
