@@ -520,8 +520,13 @@ def _import_hashed():
 
 def check_tlg(config_path):
     base_path = os.path.dirname(config_path)
-    version_path = os.path.join(base_path, "version.dll")
-    uxtheme_path = os.path.join(base_path, "uxtheme.dll")
+    paths = [
+        'version.dll',
+        'uxtheme.dll',
+        'xinput1_3.dll',
+        'umpdc.dll'
+    ]
+    paths = [os.path.join(base_path, p) for p in paths]
     if not os.path.exists(config_path):
         return None
     
@@ -529,10 +534,10 @@ def check_tlg(config_path):
         config = util.load_json(config_path)
         if 'maxFps' in config:
             dll_path = None
-            if os.path.exists(version_path):
-                dll_path = version_path
-            elif os.path.exists(uxtheme_path):
-                dll_path = uxtheme_path
+            for p in paths:
+                if os.path.exists(p):
+                    dll_path = p
+                    break
 
             if dll_path:
                 with open(dll_path, "rb") as f:

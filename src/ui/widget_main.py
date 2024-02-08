@@ -181,10 +181,12 @@ class patcher_widget(QWidget):
 
     def patch(self):
         # Handle DLL choice
-        if self.rbt_version.isChecked():
-            dll_name = 'version.dll'
+        if self.rbt_umpdc.isChecked():
+            dll_name = 'umpdc.dll'
+        elif self.rbt_xinput.isChecked():
+            dll_name = 'xinput1_3.dll'
         else:
-            dll_name = 'uxtheme.dll'
+            dll_name = 'version.dll'
 
         self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize), error_handler=self.patch_error)
     
@@ -255,13 +257,13 @@ class patcher_widget(QWidget):
 
         self.verticalLayoutWidget = QWidget(self)
         self.verticalLayoutWidget.setObjectName(u"verticalLayoutWidget")
-        self.verticalLayoutWidget.setGeometry(QRect(10, 30, 121, 81))
+        self.verticalLayoutWidget.setGeometry(QRect(10, 0, 121, 120))
         self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.lbl_dll = QLabel(self.verticalLayoutWidget)
         self.lbl_dll.setObjectName(u"lbl_dll")
-        self.lbl_dll.setText(u"DLL name:")
+        self.lbl_dll.setText(u"DLL name:<br>(Change if you<br>experience issues)")
 
         self.verticalLayout.addWidget(self.lbl_dll)
 
@@ -271,11 +273,23 @@ class patcher_widget(QWidget):
 
         self.verticalLayout.addWidget(self.rbt_version)
 
-        self.rbt_uxtheme = QRadioButton(self.verticalLayoutWidget)
-        self.rbt_uxtheme.setObjectName(u"rbt_uxtheme")
-        self.rbt_uxtheme.setText(u"uxtheme.dll")
+        self.rbt_umpdc = QRadioButton(self.verticalLayoutWidget)
+        self.rbt_umpdc.setObjectName(u"rbt_umpdc")
+        self.rbt_umpdc.setText(u"umpdc.dll")
 
-        self.verticalLayout.addWidget(self.rbt_uxtheme)
+        self.verticalLayout.addWidget(self.rbt_umpdc)
+
+        self.rbt_xinput = QRadioButton(self.verticalLayoutWidget)
+        self.rbt_xinput.setObjectName(u"rbt_xinput")
+        self.rbt_xinput.setText(u"xinput1_3.dll")
+
+        self.verticalLayout.addWidget(self.rbt_xinput)
+
+        # self.rbt_uxtheme = QRadioButton(self.verticalLayoutWidget)
+        # self.rbt_uxtheme.setObjectName(u"rbt_uxtheme")
+        # self.rbt_uxtheme.setText(u"uxtheme.dll")
+
+        # self.verticalLayout.addWidget(self.rbt_uxtheme)
 
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
@@ -283,10 +297,14 @@ class patcher_widget(QWidget):
 
         # Handle DLL choice
         dll_name = settings.dll_name
-        if dll_name == 'version.dll':
-            self.rbt_version.setChecked(True)
+        if not dll_name:
+            dll_name = 'version.dll'
+        if dll_name.lower() == 'umpdc.dll':
+            self.rbt_umpdc.setChecked(True)
+        elif dll_name.lower() == 'xinput1_3.dll':
+            self.rbt_xinput.setChecked(True)
         else:
-            self.rbt_uxtheme.setChecked(True)
+            self.rbt_version.setChecked(True)
 
 
         self.plainTextEdit = QPlainTextEdit(self)
