@@ -22,6 +22,7 @@ class PatchStatus(enum.Enum):
     Partial = ['Remnants found, please reapply', 'yellow']
     Unfinished = ['Installation was interrupted', 'yellow']
     DllNotFound = ['DLL not found', 'yellow']
+    DllDeprecated = ['DLL deprecated', 'yellow']
 
 class Stream(QObject):
     newText = pyqtSignal(str)
@@ -79,6 +80,8 @@ class patcher_widget(QWidget):
             patch_status = PatchStatus.DllNotFound
         elif not cur_dll_ver:
             patch_status = PatchStatus.Unpatched
+        elif settings.dll_name == 'uxtheme.dll':
+            patch_status = PatchStatus.DllDeprecated
         else:
             cur_patch_ver = version.string_to_version(cur_patch_ver)
             cur_dll_ver = version.string_to_version(cur_dll_ver)
@@ -127,6 +130,8 @@ class patcher_widget(QWidget):
             self.lbl_patch_status_3.setText(f"Your patch was interrupted. Please reapply.")
         elif patch_status == PatchStatus.DllNotFound:
             self.lbl_patch_status_3.setText(f"Your DLL is missing. Please reapply.")
+        elif patch_status == PatchStatus.DllDeprecated:
+            self.lbl_patch_status_3.setText(f"Your DLL no longer works. Please reapply.")
 
 
 
