@@ -201,6 +201,8 @@ def clean_asset_backups():
         if not os.path.exists(asset_path):
             print(f"Deleting {asset_backup}")
             os.remove(asset_backup)
+        else:
+            shutil.move(asset_backup, asset_path)
     # print("Done")
 
 def create_new_image_from_path_id(asset_bundle, path_id, diff_path):
@@ -248,8 +250,8 @@ def handle_backup(asset_hash):
 
     if not os.path.exists(asset_path_bak):
         shutil.copy(asset_path, asset_path_bak)
-    else:
-        shutil.copy(asset_path_bak, asset_path)
+    # else:
+    #     shutil.copy(asset_path_bak, asset_path)
     
     return asset_path
 
