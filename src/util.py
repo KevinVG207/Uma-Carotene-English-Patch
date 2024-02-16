@@ -91,26 +91,39 @@ TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
-class Connection():
+class Connection:
     DB_PATH = None
 
     def __init__(self):
-        self.conn = sqlite3.connect(self.DB_PATH)
+        if not self.DB_PATH or not os.path.exists(self.DB_PATH):
+            noGameInstallFoundException()
+            raise Exception("No complete install could be found")
+        else:
+            self.conn = sqlite3.connect(self.DB_PATH)
+
     def __enter__(self):
-        return self.conn, self.conn.cursor()
+            return self.conn, self.conn.cursor()
+
     def __exit__(self, type, value, traceback):
-        self.conn.close()
+            self.conn.close()
 
 class MDBConnection(Connection):
-    DB_PATH = MDB_PATH
+    DB_PATH = None
 
 class MetaConnection(Connection):
-    DB_PATH = META_PATH
-
+    DB_PATH = None
 
 class NotEnoughSpaceException(Exception):
     pass
 
+def noGameInstallFoundException():
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Critical)
+    msg.setText("We couldn't find a complete install of the game.\n\nPlease make sure that you have finished the tutorial and the initial in-game download before running Carotene.\n\nIf you are still encoutering this issue please join our discord for direct help.")
+    msg.setWindowTitle("No Install Found")
+    msg.setStandardButtons(QMessageBox.Ok)
+    msg.button(QMessageBox.Ok).setText("Ok")
+    msg.exec_()
 
 def load_json(path):
     if os.path.exists(path):
