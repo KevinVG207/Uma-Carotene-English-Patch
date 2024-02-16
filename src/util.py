@@ -108,10 +108,10 @@ class Connection:
             self.conn.close()
 
 class MDBConnection(Connection):
-    DB_PATH = None
+    DB_PATH = MDB_PATH
 
 class MetaConnection(Connection):
-    DB_PATH = None
+    DB_PATH = META_PATH
 
 class NotEnoughSpaceException(Exception):
     pass
