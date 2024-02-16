@@ -61,7 +61,11 @@ class patcher_widget(QWidget):
         self.setFixedSize(self.size())
 
         self.pipe_output()
-        self.update_patch_status()
+
+        try:
+            self.update_patch_status()
+        except util.GameDatabaseNotFoundException:
+            sys.exit()
 
         self.raise_()
     

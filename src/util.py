@@ -96,8 +96,8 @@ class Connection:
 
     def __init__(self):
         if not self.DB_PATH or not os.path.exists(self.DB_PATH):
-            noGameInstallFoundException()
-            raise Exception("No complete install could be found")
+            display_critical_message("No Database Found", "We couldn't find the game's database file.\n\nPlease make sure that you have finished the tutorial and the initial in-game download before running Carotene.\n\nIf you are still encoutering this issue please join our Discord server for direct help.")
+            raise GameDatabaseNotFoundException(f"Game database {self.DB_PATH} not found.")
         else:
             self.conn = sqlite3.connect(self.DB_PATH)
 
@@ -113,14 +113,17 @@ class MDBConnection(Connection):
 class MetaConnection(Connection):
     DB_PATH = META_PATH
 
+class GameDatabaseNotFoundException(Exception):
+    pass
+
 class NotEnoughSpaceException(Exception):
     pass
 
-def noGameInstallFoundException():
+def display_critical_message(title, text):
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Critical)
-    msg.setText("We couldn't find a complete install of the game.\n\nPlease make sure that you have finished the tutorial and the initial in-game download before running Carotene.\n\nIf you are still encoutering this issue please join our discord for direct help.")
-    msg.setWindowTitle("No Install Found")
+    msg.setText(text)
+    msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Ok)
     msg.button(QMessageBox.Ok).setText("Ok")
     msg.exec_()
