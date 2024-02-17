@@ -1,16 +1,12 @@
-<!-- Centered logo header with icon left of text -->
-<div align="center">
-    <h1 style="font-size: 24px; font-weight: bold;"><img src="images/icon.png" alt="Carotene Logo" width="50" height="50"> Carotene</h1>
-</div>
-
 <!-- GitHub and Discord badges -->
+<h1 align="center">Carotene
 <p align="center">
     <!-- GitHub badge -->
     <a href="https://github.com/KevinVG207/Uma-Carotene-English-Patch/releases/latest">
         <img src="https://img.shields.io/github/v/release/KevinVG207/Uma-Carotene-English-Patch?label=GitHub&style=flat-square" alt="GitHub Version">
     </a>
 </p>
-
+</h1>
 
 
 ## English Patch for Umamusume: Pretty Derby (DMM version) game
