@@ -9,7 +9,7 @@ import unity
 from UnityPy.enums import TextureFormat
 from sqlite3 import Error as SqliteError
 from PIL import Image, ImageFile
-from settings import settings
+from settings import settings, pc
 import math
 import json
 
@@ -475,11 +475,18 @@ def import_stories(story_datas):
 def import_assets():
     clean_asset_backups()
 
+    if not pc("flash") and not pc("textures") and not pc("story"):
+        print("Skipping assets.")
+        return
+
     asset_dict = util.get_assets_type_dict()
 
-    import_flash(asset_dict.get('flash', []))
-    import_textures(asset_dict.get('texture', []))
-    import_stories(asset_dict.get('story', []))
+    if pc("flash"):
+        import_flash(asset_dict.get('flash', []))
+    if pc("textures"):
+        import_textures(asset_dict.get('texture', []))
+    if pc("story"):
+        import_stories(asset_dict.get('story', []))
 
 
 def _import_jpdict():
@@ -789,12 +796,14 @@ def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
 
     settings.client_version = version.VERSION
     settings.install_started = True
+    settings.customization_changed = False
 
     mark_mdb_translated(ver)
 
     import_mdb()
 
-    import_assembly(dl_latest, dll_name)
+    if pc("assembly"):
+        import_assembly(dl_latest, dll_name)
 
     import_assets()
 

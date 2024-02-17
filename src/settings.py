@@ -12,7 +12,10 @@ default_settings = {
     'install_started': False,
     'tlg_config_bak': None,
     'prerelease': False,
-    'tlg_orig_name': None
+    'tlg_orig_name': None,
+    'patch_customization': {},
+    'patch_customization_enabled': False,
+    'customization_changed': False
 }
 
 class Settings:
@@ -89,6 +92,30 @@ class Settings:
     @tlg_orig_name.setter
     def tlg_orig_name(self, value):
         self['tlg_orig_name'] = value
+
+    @property
+    def patch_customization(self):
+        return self['patch_customization']
+    
+    @patch_customization.setter
+    def patch_customization(self, value):
+        self['patch_customization'] = value
+
+    @property
+    def patch_customization_enabled(self):
+        return self['patch_customization_enabled']
+    
+    @patch_customization_enabled.setter
+    def patch_customization_enabled(self, value):
+        self['patch_customization_enabled'] = value
+
+    @property
+    def customization_changed(self):
+        return self['customization_changed']
+    
+    @customization_changed.setter
+    def customization_changed(self, value):
+        self['customization_changed'] = value
     
     def _load(self):
         # print("Loading settings")
@@ -132,3 +159,12 @@ class Settings:
         self._save(settings)
 
 settings = Settings()
+
+def pc(cust_setting):
+    # Get the patch customization setting
+    if settings.patch_customization_enabled:
+        # If patch customization is enabled, return the value of the setting
+        return settings.patch_customization.get(cust_setting, True)
+    
+    # Customization is disabled, always True
+    return True
