@@ -168,3 +168,26 @@ def pc(cust_setting):
     
     # Customization is disabled, always True
     return True
+
+def filter_mdb_jsons(mdb_jsons):
+    filters = {
+        'skill_names': [j for j in mdb_jsons if j.endswith('\\text_data\\47.json')],
+        'skill_descs': [j for j in mdb_jsons if j.endswith('\\text_data\\48.json')],
+    }
+    
+    filtered_jsons = set()
+    for jsons in filters.values():
+        for json in jsons:
+            filtered_jsons.add(json)
+    
+    other = set(mdb_jsons) - filtered_jsons
+
+    filters['mdb'] = other
+
+    selected = set()
+
+    for key, value in filters.items():
+        if pc(key):
+            selected.update(set(value))
+    
+    return list(selected)

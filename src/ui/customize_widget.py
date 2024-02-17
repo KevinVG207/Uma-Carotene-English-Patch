@@ -13,6 +13,7 @@ class customize_widget(QDialog):
         super().__init__(*args, **kwargs)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
+        self.setFixedSize(self.size())
 
     def save_clicked(self):
         if self.rbtn_all.isChecked():
@@ -72,7 +73,7 @@ class customize_widget(QDialog):
 
         self.rbtn_customize = QRadioButton(self.verticalLayoutWidget)
         self.rbtn_customize.setObjectName(u"rbtn_customize")
-        self.rbtn_customize.setText(u"Customize:")
+        self.rbtn_customize.setText(u"Patch only the following:")
         self.rbtn_customize.toggled.connect(self.handle_toggle)
 
         self.verticalLayout.addWidget(self.rbtn_customize)
@@ -91,8 +92,8 @@ class customize_widget(QDialog):
         
         add_listitem("Skill names", "skill_names")
         add_listitem("Skill descriptions", "skill_descs")
-        add_listitem("All database (UI) text not above", "mdb")
-        add_listitem("Assembly Strings (UI) + DLL", "assembly")
+        add_listitem("All database (UI) text not in the settings above", "mdb")
+        add_listitem("Assembly Strings (UI)", "assembly")
         add_listitem("Flash (UI)", "flash")
         add_listitem("Stories", "story")
         add_listitem("Textures", "textures")

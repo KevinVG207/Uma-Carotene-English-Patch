@@ -7,3 +7,4 @@ dist/
 translations/
 build/
 src/version.rc
+sandbox.py

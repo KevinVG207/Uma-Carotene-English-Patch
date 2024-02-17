@@ -9,7 +9,7 @@ import unity
 from UnityPy.enums import TextureFormat
 from sqlite3 import Error as SqliteError
 from PIL import Image, ImageFile
-from settings import settings, pc
+from settings import settings, pc, filter_mdb_jsons
 import math
 import json
 
@@ -143,6 +143,7 @@ def get_current_patch_ver():
 
 def import_mdb():
     mdb_jsons = util.get_tl_mdb_jsons()
+    mdb_jsons = filter_mdb_jsons(mdb_jsons)
 
     with util.MDBConnection() as (conn, cursor):
         for mdb_json in util.tqdm(mdb_jsons, desc="Importing MDB"):
@@ -596,7 +597,7 @@ def fix_tlg_config(config_path):
         json.dump(tlg_data, f, indent=4)
 
 
-def import_assembly(dl_latest=False, dll_name='version.dll'):
+def import_assembly():
     print("Importing assembly text...")
 
     game_folder = util.get_game_folder()
@@ -622,84 +623,93 @@ def import_assembly(dl_latest=False, dll_name='version.dll'):
     
     print(f"Imported {len(lines)} lines.")
 
-    if dl_latest:
-        print("Looking for latest mod version")
-        latest_data = util.get_latest_dll_json(settings.prerelease)
-        print("Downloading patcher mod.")
+    # print("Done.")
 
-        dll_url = None
-        for asset in latest_data['assets']:
-            if asset['name'] == 'version.dll':
-                dll_url = asset['browser_download_url']
-                break
+def download_dll(dl_latest=False, dll_name='version.dll'):
+    if not dl_latest:
+        print("Not downloading latest dll.")
+        return
+
+    game_folder = util.get_game_folder()
+
+    if not game_folder:
+        raise ValueError("Game folder could not be determined.")
+    
+    if not os.path.exists(game_folder):
+        raise FileNotFoundError(f"Game folder does not exist: {game_folder}.")
+
+
+    print("Looking for latest mod version")
+    latest_data = util.get_latest_dll_json(settings.prerelease)
+    print("Downloading patcher mod.")
+
+    dll_url = None
+    for asset in latest_data['assets']:
+        if asset['name'] == 'version.dll':
+            dll_url = asset['browser_download_url']
+            break
+    
+    if not dll_url:
+        raise Exception("version.dll not found in release assets.")
+    
+    prev_name = settings.dll_name
+    if prev_name:
+        prev_bak = prev_name + util.DLL_BACKUP_SUFFIX
+
+        prev_path = os.path.join(game_folder, prev_name)
+        prev_bak_path = os.path.join(game_folder, prev_bak)
+
+        if os.path.exists(prev_path):
+            print(f"Deleting {prev_name}")
+            os.remove(prev_path)
         
-        if not dll_url:
-            raise Exception("version.dll not found in release assets.")
-        
-        prev_name = settings.dll_name
-        if prev_name:
-            prev_bak = prev_name + util.DLL_BACKUP_SUFFIX
+        if os.path.exists(prev_bak_path):
+            print(f"Reverting existing {prev_bak}")
+            shutil.move(prev_bak_path, prev_path)
+    
 
-            prev_path = os.path.join(game_folder, prev_name)
-            prev_bak_path = os.path.join(game_folder, prev_bak)
+    # Check for tlg
+    tlg_config_path = os.path.join(game_folder, "config.json")
+    tlg_dll_name = check_tlg(tlg_config_path)
+    if tlg_dll_name:
+        print("TLG detected.")
+        # dll_name = "carotene.dll"
 
-            if os.path.exists(prev_path):
-                print(f"Deleting {prev_name}")
-                os.remove(prev_path)
-            
-            if os.path.exists(prev_bak_path):
-                print(f"Reverting existing {prev_bak}")
-                shutil.move(prev_bak_path, prev_path)
-        
-
-        # Check for tlg
-        tlg_config_path = os.path.join(game_folder, "config.json")
-        tlg_dll_name = check_tlg(tlg_config_path)
-        if tlg_dll_name:
-            print("TLG detected.")
-            # dll_name = "carotene.dll"
-
-            config_bak_path = tlg_config_path + util.DLL_BACKUP_SUFFIX
-            if not os.path.exists(config_bak_path):
-                print("Backing up existing config.json")
-                shutil.copy(tlg_config_path, config_bak_path)
-            else:
-                print("Reverting existing config.json before patching.")
-                shutil.copy(config_bak_path, tlg_config_path)
-            settings.tlg_config_bak = os.path.basename(config_bak_path)
-
-            fix_tlg_config(tlg_config_path)
-
-            # Rename the dll
-            tlg_dll_path = os.path.join(game_folder, tlg_dll_name)
-            tlg_new_path = os.path.join(game_folder, 'tlg.dll')
-
-            if os.path.exists(tlg_dll_path):
-                print(f"Renaming {tlg_dll_name} to tlg.dll")
-                shutil.move(tlg_dll_path, tlg_new_path)
-            
-            settings.tlg_orig_name = tlg_dll_name
-
+        config_bak_path = tlg_config_path + util.DLL_BACKUP_SUFFIX
+        if not os.path.exists(config_bak_path):
+            print("Backing up existing config.json")
+            shutil.copy(tlg_config_path, config_bak_path)
         else:
-            print("TLG not detected/does not need to be moved.")
+            print("Reverting existing config.json before patching.")
+            shutil.copy(config_bak_path, tlg_config_path)
+        settings.tlg_config_bak = os.path.basename(config_bak_path)
 
+        fix_tlg_config(tlg_config_path)
 
-        dll_path = os.path.join(game_folder, dll_name)
-        bak_path = dll_path + util.DLL_BACKUP_SUFFIX
+        # Rename the dll
+        tlg_dll_path = os.path.join(game_folder, tlg_dll_name)
+        tlg_new_path = os.path.join(game_folder, 'tlg.dll')
 
-        if os.path.exists(dll_path) and not os.path.exists(bak_path):
-            print(f"Backing up existing {dll_name}")
-            shutil.move(dll_path, bak_path)
+        if os.path.exists(tlg_dll_path):
+            print(f"Renaming {tlg_dll_name} to tlg.dll")
+            shutil.move(tlg_dll_path, tlg_new_path)
         
-        settings.dll_name = dll_name
-        util.download_file(dll_url, dll_path)
-        settings.dll_version = latest_data['tag_name']
+        settings.tlg_orig_name = tlg_dll_name
 
     else:
-        print("Not downloading latest dll.")
+        print("TLG not detected/does not need to be moved.")
 
-    # print("Done.")
-        
+
+    dll_path = os.path.join(game_folder, dll_name)
+    bak_path = dll_path + util.DLL_BACKUP_SUFFIX
+
+    if os.path.exists(dll_path) and not os.path.exists(bak_path):
+        print(f"Backing up existing {dll_name}")
+        shutil.move(dll_path, bak_path)
+    
+    settings.dll_name = dll_name
+    util.download_file(dll_url, dll_path)
+    settings.dll_version = latest_data['tag_name']
 
 def upgrade():
     prev_client = settings.client_version
@@ -803,7 +813,9 @@ def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
     import_mdb()
 
     if pc("assembly"):
-        import_assembly(dl_latest, dll_name)
+        import_assembly()
+    
+    download_dll(dl_latest, dll_name)
 
     import_assets()
 

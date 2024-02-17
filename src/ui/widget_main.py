@@ -197,6 +197,12 @@ class patcher_widget(QWidget):
         self.thread_.finished.connect(self.update_patch_status)
         self.thread_.start()
 
+    def _patch(self, dll_name):
+        if settings.customization_changed:
+            _unpatch.main(dl_latest=True)
+            settings.customization_changed = False
+        _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize)
+
     def patch(self):
         # Handle DLL choice
         if self.rbt_umpdc.isChecked():
@@ -206,7 +212,7 @@ class patcher_widget(QWidget):
         else:
             dll_name = 'version.dll'
 
-        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize), error_handler=self.patch_error)
+        self.try_start_thread(lambda: self._patch(dll_name), error_handler=self.patch_error)
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
