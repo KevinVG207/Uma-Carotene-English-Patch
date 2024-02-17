@@ -115,6 +115,7 @@ def revert_assembly(dl_latest=False):
 
 def main(dl_latest=False):
     print("=== Unpatching ===")
+    settings.customization_changed = False
 
     revert_mdb()
     revert_assets()

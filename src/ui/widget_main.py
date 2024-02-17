@@ -12,7 +12,10 @@ from settings import settings
 import enum
 import sys
 import traceback
+import ui.customize_widget as customize_widget
 from sqlite3 import Error as SqliteError
+from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtCore import QSize
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
@@ -23,6 +26,7 @@ class PatchStatus(enum.Enum):
     Unfinished = ['Installation was interrupted', 'yellow']
     DllNotFound = ['DLL not found', 'yellow']
     DllDeprecated = ['DLL deprecated', 'yellow']
+    SettingsChanged = ['Customization changed', 'yellow']
 
 class Stream(QObject):
     newText = pyqtSignal(str)
@@ -99,7 +103,9 @@ class patcher_widget(QWidget):
                 patch_status = PatchStatus.DllOutdated
             else:
                 patch_status = PatchStatus.Patched
-
+        
+        if patch_status != PatchStatus.Unpatched and settings.customization_changed:
+            patch_status = PatchStatus.SettingsChanged
             
         
         patch_text, patch_color = patch_status.value
@@ -136,7 +142,8 @@ class patcher_widget(QWidget):
             self.lbl_patch_status_3.setText(f"Your DLL is missing. Please reapply.")
         elif patch_status == PatchStatus.DllDeprecated:
             self.lbl_patch_status_3.setText(f"Your DLL no longer works. Please reapply.")
-
+        elif patch_status == PatchStatus.SettingsChanged:
+            self.lbl_patch_status_3.setText(f"You changed the customization. Please reapply.")
 
 
     def pipe_output(self):
@@ -162,6 +169,7 @@ class patcher_widget(QWidget):
         self.traceback = None
         self.btn_patch.setEnabled(True)
         self.btn_revert.setEnabled(True)
+        self.btn_settings.setEnabled(True)
 
     def try_start_thread(self, func, error_handler=None):
         if self.background_thread:
@@ -173,6 +181,7 @@ class patcher_widget(QWidget):
         
         self.btn_patch.setEnabled(False)
         self.btn_revert.setEnabled(False)
+        self.btn_settings.setEnabled(False)
         
         self.background_thread = True
         self.error_handler = error_handler
@@ -188,6 +197,12 @@ class patcher_widget(QWidget):
         self.thread_.finished.connect(self.update_patch_status)
         self.thread_.start()
 
+    def _patch(self, dll_name):
+        if settings.customization_changed:
+            _unpatch.main(dl_latest=True)
+            settings.customization_changed = False
+        _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize)
+
     def patch(self):
         # Handle DLL choice
         if self.rbt_umpdc.isChecked():
@@ -197,7 +212,7 @@ class patcher_widget(QWidget):
         else:
             dll_name = 'version.dll'
 
-        self.try_start_thread(lambda: _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize), error_handler=self.patch_error)
+        self.try_start_thread(lambda: self._patch(dll_name), error_handler=self.patch_error)
     
     def unpatch(self):
         self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
@@ -221,6 +236,10 @@ class patcher_widget(QWidget):
             res = QMessageBox.warning(self, "Not Enough Space", error_message, QMessageBox.Ok)
             self.ignore_filesize = True
 
+    def show_settings(self):
+        self.settings_widget = customize_widget.customize_widget(self)
+        self.settings_widget.setModal(True)  # Set the widget to be modal
+        self.settings_widget.show()
 
     def setupUi(self):
         if not self.objectName():
@@ -326,3 +345,10 @@ class patcher_widget(QWidget):
         font.setFamily(u"Consolas")
         font.setPointSize(8)
         self.plainTextEdit.setFont(font)
+
+
+        self.btn_settings = QPushButton(self)
+        self.btn_settings.setObjectName(u"btn_settings")
+        self.btn_settings.setGeometry(QRect(370, 10, 83, 31))
+        self.btn_settings.setText(u"Customization")
+        self.btn_settings.clicked.connect(self.show_settings)
