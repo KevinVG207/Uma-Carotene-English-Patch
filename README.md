@@ -2,7 +2,7 @@
 
 ## English Patch for Umamusume: Pretty Derby (DMM version) game
 
-Visit the GitHub repos: [Patcher GUI](https://github.com/KevinVG207/Uma-Carotene-English-Patch) - [Translations](https://github.com/KevinVG207/Uma-Carotene-TL) - [Mod DLL](https://github.com/KevinVG207/Uma-Carotenify)
+Visit the GitHub repos: [Translations](https://github.com/KevinVG207/Uma-Carotene-TL) - [Mod DLL](https://github.com/KevinVG207/Uma-Carotenify)
 
 View the [Translation Credits](https://docs.google.com/spreadsheets/d/1NTGzdvDuab0gaSi6Yt8CBSchxDXCbrkSsxPESXCHCaU/edit?usp=sharing).
 
