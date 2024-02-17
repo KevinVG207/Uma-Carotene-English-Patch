@@ -1,13 +1,4 @@
-<!-- GitHub and Discord badges -->
-<h1 align="center">Carotene
-<p align="center">
-    <!-- GitHub badge -->
-    <a href="https://github.com/KevinVG207/Uma-Carotene-English-Patch/releases/latest">
-        <img src="https://img.shields.io/github/v/release/KevinVG207/Uma-Carotene-English-Patch?label=GitHub&style=flat-square" alt="GitHub Version">
-    </a>
-</p>
-</h1>
-
+# Carotene [![GitHub Version](https://img.shields.io/github/v/release/KevinVG207/Uma-Carotene-English-Patch?label=GitHub&style=flat-square)](https://github.com/KevinVG207/Uma-Carotene-English-Patch/releases/latest)
 
 ## English Patch for Umamusume: Pretty Derby (DMM version) game
 
@@ -32,6 +23,13 @@ Carotene is an English patch project for the Uma Musume: Pretty Derby (DMM Versi
     <img src="/images/story.jpg" alt="Home - Story screen" style="width: 24%;">
     <img src="/images/home.jpg" alt="Home screen" style="width: 24%;">
     <img src="/images/training.jpg" alt="Training screen" style="width: 24%;">
+</div>
+
+#### Missions and Skills
+
+<div style="display: flex;">
+    <img src="/images/missions.jpg" alt="mission" style="width: 49%;">
+    <img src="/images/skills.jpg" alt="mission" style="width: 49%;">
 </div>
 
 ## Features
