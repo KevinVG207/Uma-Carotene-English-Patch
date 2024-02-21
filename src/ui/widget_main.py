@@ -66,6 +66,11 @@ class patcher_widget(QWidget):
 
         self.pipe_output()
 
+        # check if dlls exist in current directory
+        if dll_exists_in_folder():
+            display_critical_message("Cannot execute in current Directory", "Please make sure to not launch the Patcher inside the umamusume install directory!\n\nYou can execute it from anywhere but the umamusume directory")
+            sys.exit()
+
         try:
             self.update_patch_status()
         except util.GameDatabaseNotFoundException:
