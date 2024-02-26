@@ -24,6 +24,8 @@ from multiprocessing import Pool
 import re
 import hashlib
 
+DLL_NAMES = ['version.dll', 'umpdc.dll', 'xinput1_3.dll']
+
 hyphen_dict = pyphen.Pyphen(lang='en_US')
 
 relative_dir = os.path.abspath(os.getcwd())
@@ -91,8 +93,6 @@ TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
-UNWANTED_DLLS = ['version.dll', 'umpdc.dll', 'xinput1_3.dll']
-
 class Connection:
     DB_PATH = None
 
@@ -120,9 +120,6 @@ class GameDatabaseNotFoundException(Exception):
 
 class NotEnoughSpaceException(Exception):
     pass
-
-def dll_exists_in_current_folder():
-    return any(os.path.exists(dll) for dll in UNWANTED_DLLS)
 
 def display_critical_message(title, text):
     msg = QMessageBox()
@@ -731,3 +728,6 @@ def check_enough_space(size):
         return False, "<br>".join(err_list)
     
     return True, None
+
+def running_from_game_folder():
+    return os.path.abspath(os.getcwd()) == os.path.abspath(get_game_folder())
