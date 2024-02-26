@@ -91,6 +91,8 @@ TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
+UNWANTED_DLLS = ['version.dll', 'umpdc.dll', 'xinput1_3.dll']
+
 class Connection:
     DB_PATH = None
 
@@ -118,6 +120,9 @@ class GameDatabaseNotFoundException(Exception):
 
 class NotEnoughSpaceException(Exception):
     pass
+
+def dll_exists_in_current_folder():
+    return any(os.path.exists(dll) for dll in UNWANTED_DLLS)
 
 def display_critical_message(title, text):
     msg = QMessageBox()

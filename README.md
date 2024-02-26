@@ -41,7 +41,9 @@ Carotene is an English patch project for the Uma Musume: Pretty Derby (DMM Versi
 
 ## Installation
 
-Download the latest version of Carotene Patcher from [here](https://github.com/KevinVG207/Uma-Carotene-English-Patch/releases/latest/download/CarotenePatcher.exe). Run it from any location while your game is closed, click the Patch button and wait for it to finish. You can then start the game like normal. Click the Unpatch button to undo the patch (when the game is closed.) When the game itself has had an update, you must run the patcher again. It will tell you the game is only partially patched, so click Reapply.
+⚠️ You cannot launch the patcher inside the umamusume install directory. ⚠️
+
+Download the latest version of Carotene Patcher from [here](https://github.com/KevinVG207/Uma-Carotene-English-Patch/releases/latest/download/CarotenePatcher.exe). Run it from anywhere unless the umamusume install directory, while your game is closed, click the Patch button and wait for it to finish. You can then start the game like normal. Click the Unpatch button to undo the patch (when the game is closed.) When the game itself has had an update, you must run the patcher again. It will tell you the game is only partially patched, so click Reapply.
 
 ⚠️ This patch mods the game and is against its Terms of Service. Use at your own risk! ⚠️
 
