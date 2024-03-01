@@ -393,14 +393,14 @@ def get_game_folder():
     return path
 
 APPLICATION = None
-def run_widget(widget, *args, **kwargs):
+def run_widget(widget, main=False, *args, **kwargs):
     global APPLICATION
 
     if not APPLICATION:
         APPLICATION = QApplication([])
         APPLICATION.setWindowIcon(QIcon(get_asset('assets/icon.ico')))
     
-    if hasattr(widget, 'exec_'):
+    if hasattr(widget, 'exec_') and not main:
         widget.exec_(*args, **kwargs)
         return
     widget = widget(*args, **kwargs)
@@ -731,3 +731,21 @@ def check_enough_space(size):
 
 def running_from_game_folder():
     return os.path.abspath(os.getcwd()) == os.path.abspath(get_game_folder())
+
+def send_umalauncher_signal(endpoint, data={}):
+    # Send signals to Uma Launcher about the state of the patcher.
+    ul_domain = "http://127.0.0.1:3150/"
+    url = ul_domain + endpoint
+    try:
+        requests.post(url, json=data, verify=False, timeout=1)
+    except:
+        pass
+
+def send_start_signal():
+    send_umalauncher_signal("patcher-start")
+
+def send_finish_signal():
+    send_umalauncher_signal("patcher-finish", {"success": True})
+
+def send_error_signal(error_string):
+    send_umalauncher_signal("patcher-finish", {"success": False, "error": error_string})

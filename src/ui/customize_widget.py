@@ -5,7 +5,7 @@ from settings import settings
 
 
 class customize_widget(QDialog):
-    def __init__(self, _parent, *args, **kwargs):
+    def __init__(self, _parent=None, *args, **kwargs):
         self._parent = _parent
         self.initial_settings = settings.patch_customization
         self.initial_enabled = settings.patch_customization_enabled
@@ -33,7 +33,8 @@ class customize_widget(QDialog):
         else:
             settings.customization_changed = False
         
-        self._parent.update_patch_status()
+        if self._parent:
+            self._parent.update_patch_status()
 
         event.accept()
     

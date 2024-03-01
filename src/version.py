@@ -10,7 +10,7 @@ import sys
 from urllib.parse import urlparse
 from settings import settings
 
-VERSION = (0, 3, 1)
+VERSION = (0, 0, 1)
 
 def version_to_string(version):
     return "v" + ".".join(str(v) for v in version)
@@ -34,14 +34,15 @@ def check_update():
         # We're up to date
         return
     
-    choice = [False]
-    util.run_widget(update_widget, latest_release['tag_name'], choice)
-    choice = choice[-1]
+    if not settings.args.update:
+        choice = [False]
+        util.run_widget(update_widget, release_version=latest_release['tag_name'], choice=choice)
+        choice = choice[-1]
 
-    print(choice)
+        print(choice)
 
-    if not choice:
-        return
+        if not choice:
+            return
     
     # Find the asset
     dl_asset = None
@@ -57,7 +58,7 @@ def check_update():
     update_thread = threading.Thread(target=update_object.run)
     update_thread.start()
 
-    util.run_widget(update_wait_widget, update_object)
+    util.run_widget(update_wait_widget, update_object=update_object)
 
     # If all went well, we should never reach this point.
     raise Exception("Update failed")
@@ -78,6 +79,7 @@ class Updater():
             return
         try:
             path_to_exe = sys.argv[0]
+            other_args = " " + " ".join(sys.argv[1:])
             exe_file = os.path.basename(path_to_exe)
             without_ext = os.path.splitext(exe_file)[0]
 
@@ -85,7 +87,7 @@ class Updater():
             urllib.request.urlretrieve(download_url, f"{exe_file}_")
             # Start a process that starts the new exe.
             print("Download complete, now trying to open the new exec.")
-            sub = subprocess.Popen(f"taskkill /F /IM \"{exe_file}\" && move /y \".\\{exe_file}\" \".\\{without_ext}.old\" && move /y \".\\{exe_file}_\" \".\\{exe_file}\" && \".\\{exe_file}\"", shell=True)
+            sub = subprocess.Popen(f"taskkill /F /IM \"{exe_file}\" && move /y \".\\{exe_file}\" \".\\{without_ext}.old\" && move /y \".\\{exe_file}_\" \".\\{exe_file}\" && \".\\{exe_file}\"{other_args}", shell=True)
             while True:
                 # Check if subprocess is still running
                 if sub.poll() is not None:

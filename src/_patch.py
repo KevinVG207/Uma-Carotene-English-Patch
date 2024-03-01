@@ -824,7 +824,7 @@ def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
     
     settings.install_started = False
     settings.installed = True
-    
+
     print("=== Patching complete! ===\n")
 
 

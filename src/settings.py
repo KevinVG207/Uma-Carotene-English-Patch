@@ -2,6 +2,7 @@ import util
 import json
 import copy
 import os
+import argparse
 
 default_settings = {
     'client_version': None,
@@ -20,6 +21,9 @@ default_settings = {
 
 class Settings:
     _path = util.SETTINGS_PATH
+
+    def __init__(self):
+        self.args = self._parse_args()
 
     @property
     def client_version(self):
@@ -157,6 +161,16 @@ class Settings:
         settings = self._load()
         settings[key] = value
         self._save(settings)
+    
+    def _parse_args(self):
+        p = argparse.ArgumentParser()
+        p.add_argument('-U', '--update', action='store_true', help="Auto-update the patcher")
+        p.add_argument('-p', '--patch', help="Auto-install the patch if needed with DLL name as argument")
+        p.add_argument('-f', '--force', help="Force install the patch even if there's no update. DLL name as argument")
+        p.add_argument('-u', '--unpatch', action='store_true', help="Uninstall the patch")
+        p.add_argument('-c', '--customization', action='store_true', help="Show the customization widget")
+
+        return p.parse_args()
 
 settings = Settings()
 
