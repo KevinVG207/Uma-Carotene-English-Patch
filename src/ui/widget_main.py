@@ -59,6 +59,7 @@ class patcher_widget(QWidget):
         self.error = None
         self.traceback = None
         self.ignore_filesize = False
+        self.patch_status = PatchStatus.Unpatched
 
         self.setupUi()
         self.setFixedSize(self.size())
@@ -73,6 +74,21 @@ class patcher_widget(QWidget):
         try:
             self.update_patch_status()
         except util.GameDatabaseNotFoundException:
+            sys.exit()
+        
+        if settings.args.patch:
+            dll_name = settings.args.patch
+            if self.patch_status != PatchStatus.Patched or dll_name != settings.dll_name:
+                self._patch(settings.args.patch)
+            util.send_finish_signal()
+            sys.exit()
+        if settings.args.force:
+            self._patch(settings.args.force)
+            util.send_finish_signal()
+            sys.exit()
+        if settings.args.unpatch:
+            self._unpatch()
+            util.send_finish_signal()
             sys.exit()
 
         self.raise_()
@@ -148,6 +164,8 @@ class patcher_widget(QWidget):
             self.lbl_patch_status_3.setText(f"Your DLL no longer works. Please reapply.")
         elif patch_status == PatchStatus.SettingsChanged:
             self.lbl_patch_status_3.setText(f"You changed the customization. Please reapply.")
+        
+        self.patch_status = patch_status
 
 
     def pipe_output(self):
@@ -217,8 +235,11 @@ class patcher_widget(QWidget):
 
         self.try_start_thread(lambda: self._patch(dll_name), error_handler=self.patch_error)
     
+    def _unpatch(self):
+        _unpatch.main(dl_latest=True)
+
     def unpatch(self):
-        self.try_start_thread(lambda: _unpatch.main(dl_latest=True))
+        self.try_start_thread(self._unpatch)
 
     def closeEvent(self, event):
         if self.background_thread:
@@ -231,6 +252,9 @@ class patcher_widget(QWidget):
             res = QMessageBox.warning(self, "Database Error", "An error occurred while patching the game's database.<br>It may be invalid. Do you want to redownload the database?", QMessageBox.Yes | QMessageBox.No)
             if res == QMessageBox.Yes:
                 self.try_start_thread(lambda: util.redownload_mdb())
+                return
+        
+        util.send_error_signal(str(e))
         
         if isinstance(e, util.NotEnoughSpaceException):
             # Get error message
