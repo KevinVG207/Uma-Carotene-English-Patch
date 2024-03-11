@@ -344,6 +344,9 @@ def set_clip_length(root, clip_asset_path_id, length_diff):
 def _import_story(story_data):
     bundle_path = handle_backup(story_data['hash'])
 
+    if not bundle_path:
+        print(f"\nStory not found: {story_data['file_name']} {story_data['hash']} - Skipping")
+
     # print(f"Importing {os.path.basename(bundle_path)}")
 
     asset_bundle = unity.load_asset(bundle_path)
