@@ -458,6 +458,15 @@ def download_asset(hash, no_progress=False):
     
     download_file(url, asset_path, no_progress=no_progress)
 
+    # Mark the asset as downloaded in the meta db
+    with MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT i FROM a WHERE h = ? AND s = 0", (hash,))
+        row = cursor.fetchone()
+        if not row:
+            return
+        cursor.execute("UPDATE a SET s = 1 WHERE i = ?", (row[0],))
+        conn.commit()
+
 def prepare_font():
     with MetaConnection() as (conn, cursor):
         cursor.execute("SELECT h FROM a WHERE n = 'font/dynamic01.otf'")
