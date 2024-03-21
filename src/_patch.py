@@ -347,7 +347,7 @@ def _import_story(story_data):
 
     if not bundle_path:
         print(f"\nStory not found: {story_data['file_name']} {story_data['hash']} - Skipping")
-
+        return
     # print(f"Importing {os.path.basename(bundle_path)}")
 
     asset_bundle = unity.load_asset(bundle_path)
