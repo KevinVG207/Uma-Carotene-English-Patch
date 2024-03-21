@@ -12,6 +12,7 @@ from PIL import Image, ImageFile
 from settings import settings, pc, filter_mdb_jsons
 import math
 import json
+import re
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -231,7 +232,7 @@ def create_new_image_from_path_id(asset_bundle, path_id, diff_path):
 
     return new_bytes, texture_read
 
-def handle_backup(asset_hash):
+def handle_backup(asset_hash, force=False):
     asset_path = util.get_asset_path(asset_hash)
     asset_path_bak = asset_path + ".bak"
 
@@ -252,8 +253,8 @@ def handle_backup(asset_hash):
 
     if not os.path.exists(asset_path_bak):
         shutil.copy(asset_path, asset_path_bak)
-    # else:
-    #     shutil.copy(asset_path_bak, asset_path)
+    elif force:
+        shutil.copy(asset_path_bak, asset_path)
     
     return asset_path
 
@@ -343,7 +344,7 @@ def set_clip_length(root, clip_asset_path_id, length_diff):
 
 
 def _import_story(story_data):
-    bundle_path = handle_backup(story_data['hash'])
+    bundle_path = handle_backup(story_data['hash'], force=True)
 
     if not bundle_path:
         print(f"\nStory not found: {story_data['file_name']} {story_data['hash']} - Skipping")
@@ -395,7 +396,8 @@ def _import_story(story_data):
         new_clip_length = new_clip['clip_length']
 
         if org_clip_length == new_clip_length:
-            txt_len = len(new_clip['text'])
+            no_tags_text = [c for c in re.sub(r'<[^>]*>', '', new_clip['text']) if c.isalnum() or c.isspace()]
+            txt_len = len(no_tags_text) * 1.5
             new_clip_length = int(text_clip_data['WaitFrame'] + max(txt_len, text_clip_data['VoiceLength']))
         
         if new_clip_length > org_clip_length:
