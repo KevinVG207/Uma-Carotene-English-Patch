@@ -20,7 +20,7 @@ import time
 import glob
 import pyphen
 from functools import cache
-from multiprocessing import Pool
+from multiprocessing.pool import Pool
 import re
 import hashlib
 
@@ -49,6 +49,18 @@ def get_asset(asset_path):
     return os.path.join(unpack_dir, asset_path)
 
 
+class UmaPool(Pool):
+    def __init__(self, processes=None, *args, **kwargs):
+        # Limit processes to 12 maximum.
+        if not processes:
+            processes = os.cpu_count() or 1
+
+        if processes > 12:
+            processes = 12
+
+        super().__init__(processes, *args, **kwargs)
+
+
 APP_DIR = os.path.expandvars("%AppData%\\Uma-Carotene\\")
 os.makedirs(APP_DIR, exist_ok=True)
 
@@ -60,8 +72,10 @@ TQDM_NCOLS = 65
 
 MDB_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\master\\master.mdb")
 META_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\meta")
+META_BACKUP_SUFFIX = ".carotene.bak"
 
 DATA_PATH = os.path.expandvars("%userprofile%\\appdata\\locallow\\Cygames\\umamusume\\dat")
+CAROTENIFY_PATY = os.path.expandvars("%TEMP%\\carotenify")
 
 TMP_FOLDER = get_asset("tmp\\")
 
@@ -91,6 +105,8 @@ DIFF_FOLDER = TL_PREFIX + "diff\\"
 TABLE_PREFIX = '_carotene'
 TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
+META_BACKUP_TABLE = TABLE_BACKUP_PREFIX + "a"
+
 DLL_BACKUP_SUFFIX = ".bak"
 
 class Connection:
@@ -114,6 +130,9 @@ class MDBConnection(Connection):
 
 class MetaConnection(Connection):
     DB_PATH = META_PATH
+
+class MetaBackupConnection(Connection):
+    DB_PATH = META_PATH + META_BACKUP_SUFFIX
 
 class GameDatabaseNotFoundException(Exception):
     pass
@@ -446,7 +465,7 @@ def download_asset(hash, no_progress=False):
     if os.path.exists(asset_path):
         return
     
-    print_str = f"Downloading missing asset {hash}"
+    print_str = f"Downloading asset {hash}"
     if no_progress:
         print_str = "\n" + print_str
     
@@ -456,7 +475,11 @@ def download_asset(hash, no_progress=False):
 
     url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Windows/assetbundles/{0:.2}/{0}'.format(hash)
     
-    download_file(url, asset_path, no_progress=no_progress)
+    try:
+        download_file(url, asset_path, no_progress=no_progress)
+    except requests.exceptions.HTTPError:
+        url = 'https://prd-storage-umamusume.akamaized.net/dl/resources/Generic/{0:.2}/{0}'.format(hash)
+        download_file(url, asset_path, no_progress=no_progress)
 
     # Mark the asset as downloaded in the meta db
     with MetaConnection() as (conn, cursor):
@@ -496,6 +519,10 @@ def get_font_data(ttfont):
 def _get_char_width(char, ttfont):
     t, s = get_font_data(ttfont)
     a = ord(char)
+
+    if a not in t:
+        return 0.0
+
     b = t[a]
     c = s[b]
     return c.width
@@ -578,7 +605,7 @@ def get_assets_type_dict():
     jsons = glob.glob(ASSETS_FOLDER + "\\**\\*.json", recursive=True)
     jsons += glob.glob(FLASH_FOLDER + "\\**\\*.json", recursive=True)
 
-    with Pool() as pool:
+    with UmaPool() as pool:
         results = list(tqdm(pool.imap_unordered(get_asset_and_type, jsons, chunksize=128), total=len(jsons), desc="Looking for assets"))
 
     # asset_dict = {result[0]: result[1] for result in results if result[0]}
@@ -738,6 +765,9 @@ def check_enough_space(size):
     
     return True, None
 
+def open_path_in_explorer(path):
+    os.startfile(path)
+
 def running_from_game_folder():
     return os.path.abspath(os.getcwd()) == os.path.abspath(get_game_folder())
 
@@ -758,3 +788,20 @@ def send_finish_signal():
 
 def send_error_signal(error_string):
     send_umalauncher_signal("patcher-finish", {"success": False, "error": error_string})
+
+def write_carotenify_file(out_str, file_type):
+    timestamp = int(time.time() * 1000)
+    filename = f"{timestamp}.{file_type}"
+    path = os.path.join(CAROTENIFY_PATY, filename)
+    with open(path, "w", encoding='utf-8') as f:
+        f.write(out_str)
+
+def cleanup_carotenify_files():
+    os.makedirs(CAROTENIFY_PATY, exist_ok=True)
+    timestamp = int((time.time() - 60) * 1000)
+    files = glob.glob(f"{CAROTENIFY_PATY}\\*")
+    for file in files:
+        if int(os.path.basename(file).split('.')[0]) < timestamp:
+            os.remove(file)
+
+cleanup_carotenify_files()
