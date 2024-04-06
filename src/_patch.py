@@ -2,7 +2,6 @@ import util
 import os
 import glob
 import shutil
-from multiprocessing.pool import Pool
 import io
 import version
 import unity
@@ -86,6 +85,35 @@ def _set_value_in_table(key, value):
 def _get_version_from_table():
     return _get_value_from_table("version")
 
+def _is_meta_updated():
+    if not _is_meta_patched():
+        return False
+
+    cur_hashes = set()
+    bak_hashes = set()
+
+    with util.MetaConnection() as (conn, cursor):
+        cursor.execute("SELECT h from a;")
+        cur_hashes = set([row[0] for row in cursor.fetchall()])
+
+    with util.MetaBackupConnection() as (conn, cursor):
+        cursor.execute("SELECT h from a;")
+        bak_hashes = set([row[0] for row in cursor.fetchall()])
+
+    if cur_hashes != bak_hashes:
+        return True
+
+    return False
+
+def _is_meta_patched():
+    bak_path = util.META_PATH + util.META_BACKUP_SUFFIX
+
+    if not os.path.exists(bak_path):
+        return False
+    
+    return True
+
+
 def get_current_patch_ver():
     # Load settings
     cur_patch_ver = settings.installed_version
@@ -100,6 +128,9 @@ def get_current_patch_ver():
         dll_path = os.path.join(util.get_game_folder(), dll_name)
 
     mdb_ver = _get_version_from_table()
+
+    meta_is_patched = _is_meta_patched()
+    meta_is_updated = _is_meta_updated()
 
     if install_started:
         # The patcher was started, but not finished.
@@ -136,6 +167,14 @@ def get_current_patch_ver():
     if cur_patch_ver != mdb_ver:
         # The mdb version does not match the installed patch version.
         # This should never happen, but we mark it as partial just in case.
+        return "partial", None
+    
+    if not meta_is_patched:
+        # The meta DB is no longer patched.
+        return "partial", None
+    
+    if meta_is_updated:
+        # The meta DB has been updated.
         return "partial", None
     
     # The patch is installed.
@@ -195,6 +234,24 @@ def import_mdb():
     print("Import complete.")
 
 
+def revert_meta_db():
+    print("Reverting meta DB")
+
+    if not _is_meta_patched():
+        return
+    
+    meta_is_updated = _is_meta_updated()
+
+    if not meta_is_updated:
+        shutil.copy(util.META_PATH + util.META_BACKUP_SUFFIX, util.META_PATH)
+    
+    os.remove(util.META_PATH + util.META_BACKUP_SUFFIX)
+
+def backup_meta_db():
+    print("Backing up meta DB")
+    shutil.copy(util.META_PATH, util.META_PATH + util.META_BACKUP_SUFFIX)
+
+
 def clean_asset_backups():
     asset_backups = glob.glob(util.DATA_PATH + "\\**\\*.bak", recursive=True)
     print(f"Amount of backups to revert: {len(asset_backups)}")
@@ -232,6 +289,15 @@ def create_new_image_from_path_id(asset_bundle, path_id, diff_path):
 
     return new_bytes, texture_read
 
+def set_group_0(metadatas):
+    # Change asset group so it doesn't get deleted.
+    with util.MetaConnection() as (conn, cursor):
+        # Change group to 0 if it's currently 1.
+        for metadata in metadatas:
+            asset_hash = metadata['hash']
+            cursor.execute("UPDATE a SET g = 0 WHERE h = ? AND g = 1;", (asset_hash,))
+        conn.commit()
+
 def handle_backup(asset_hash, force=False):
     asset_path = util.get_asset_path(asset_hash)
     asset_path_bak = asset_path + ".bak"
@@ -255,7 +321,7 @@ def handle_backup(asset_hash, force=False):
         shutil.copy(asset_path, asset_path_bak)
     elif force:
         shutil.copy(asset_path_bak, asset_path)
-    
+
     return asset_path
 
 def _import_texture(asset_metadata):
@@ -294,7 +360,7 @@ def import_textures(texture_asset_metadatas):
     print(f"Replacing {len(texture_asset_metadatas)} textures.")
     texture_asset_metadatas = [a[0] for a in texture_asset_metadatas]
 
-    with Pool() as pool:
+    with util.UmaPool() as pool:
         _ = list(util.tqdm(pool.imap_unordered(_import_texture, texture_asset_metadatas, chunksize=16), total=len(texture_asset_metadatas), desc="Importing textures"))
 
 
@@ -472,17 +538,56 @@ def _import_story(story_data):
 def import_stories(story_datas):
     #TODO: Increase chunk size (maybe 16?) when more stories are added.
     story_datas = [a[0] for a in story_datas]
-    with Pool() as pool:
+    with util.UmaPool() as pool:
         _ = list(util.tqdm(pool.imap_unordered(_import_story, story_datas, chunksize=8), total=len(story_datas), desc="Importing stories"))
 
     # print(f"Replacing {len(story_datas)} stories.")
     # for story_data in story_datas:
     #     _import_story(story_data)
 
+
+def _import_xor(xor_data):
+    asset_path = handle_backup(xor_data['hash'], force=True)
+
+    if not asset_path:
+        return
+    
+    diff_path = os.path.join(util.ASSETS_FOLDER, xor_data['file_name'] + ".diff")
+
+    if not os.path.exists(diff_path):
+        print(f"Diff not found in TL files: {diff_path} - Skipping")
+        return
+
+    with open(diff_path, "rb") as f:
+        diff_bytes = f.read()
+
+    with open(asset_path, "rb") as f:
+        source_bytes = f.read()
+
+    new_bytes = util.apply_diff(source_bytes, diff_bytes)
+
+    with open(asset_path, "wb") as f:
+        f.write(new_bytes)
+
+
+def import_movies(movie_metadatas):
+    movie_datas = [a[0] for a in movie_metadatas]
+
+    set_group_0(movie_datas)
+
+    with util.UmaPool() as pool:
+        _ = list(util.tqdm(pool.imap_unordered(_import_xor, movie_datas, chunksize=16), total=len(movie_datas), desc="Patching videos"))
+
+    # print(f"Replacing {len(xor_datas)} xor files.")
+    # for xor_data in xor_datas:
+    #     _import_xor(xor_data)
+
 def import_assets():
     clean_asset_backups()
+    revert_meta_db()
+    backup_meta_db()
 
-    if not pc("flash") and not pc("textures") and not pc("story"):
+    if not pc("flash") and not pc("textures") and not pc("story") and not pc("videos"):
         print("Skipping assets.")
         return
 
@@ -494,6 +599,8 @@ def import_assets():
         import_textures(asset_dict.get('texture', []))
     if pc("story"):
         import_stories(asset_dict.get('story', []))
+    if pc("videos"):
+        import_movies(asset_dict.get('movie', []))
 
 
 def _import_jpdict():

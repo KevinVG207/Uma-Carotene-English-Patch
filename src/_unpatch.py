@@ -120,6 +120,7 @@ def main(dl_latest=False):
     revert_mdb()
     revert_assets()
     revert_assembly(dl_latest)
+    _patch.revert_meta_db()
     _patch.mark_mdb_untranslated()
     settings.install_started = False
     settings.installed_version = None
