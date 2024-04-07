@@ -109,6 +109,15 @@ META_BACKUP_TABLE = TABLE_BACKUP_PREFIX + "a"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
+def version_to_string(version):
+    return "v" + ".".join(str(v) for v in version)
+
+def string_to_version(version_string):
+    if version_string.startswith("v"):
+        version_string = version_string[1:]
+    
+    return tuple(int(v) for v in version_string.split("."))
+
 class Connection:
     DB_PATH = None
 
@@ -293,11 +302,19 @@ def fetch_latest_github_release(username, repo, prerelease=False):
             raise Exception("Github API request failed")
         data = r.json()
     cur_version = None
+    cur_version_no = None
     for version in data:
+        version_no = string_to_version(version['tag_name'])
         if version['prerelease'] and not prerelease:
             continue
-        cur_version = version
-        break
+        if not cur_version:
+            cur_version = version
+            cur_version_no = version_no
+
+        if version_no > cur_version_no:
+            cur_version = version
+            cur_version_no = version_no
+
 
     if not cur_version:
         raise Exception("No release found")
