@@ -332,7 +332,7 @@ def _import_texture(asset_metadata):
         return
     
     # print(f"Replacing {os.path.basename(asset_path)}")
-    asset_bundle = unity.load_asset(asset_path)
+    asset_bundle, _ = unity.load_assetbundle(asset_path, hash)
     
     for texture_data in asset_metadata['textures']:
         path_id = texture_data['path_id']
@@ -371,7 +371,7 @@ def _import_flash(flash_metadata):
     if not asset_path:
         return
     
-    asset_bundle = unity.load_asset(asset_path)
+    asset_bundle, _ = unity.load_assetbundle(asset_path, hash)
 
     for path_id, mpl_dict in flash_metadata['data'].items():
         obj = asset_bundle.assets[0].files[int(path_id)]
@@ -410,16 +410,16 @@ def set_clip_length(root, clip_asset_path_id, length_diff):
 
 
 def _import_story(story_data):
-    bundle_path = handle_backup(story_data['hash'], force=True)
+    hash = story_data['hash']
+    bundle_path = handle_backup(hash, force=True)
 
     if not bundle_path:
-        print(f"\nStory not found: {story_data['file_name']} {story_data['hash']} - Skipping")
+        print(f"\nStory not found: {story_data['file_name']} {hash} - Skipping")
         return
     # print(f"Importing {os.path.basename(bundle_path)}")
 
-    asset_bundle = unity.load_asset(bundle_path)
+    asset_bundle, root = unity.load_assetbundle(bundle_path, hash)
 
-    root = list(asset_bundle.container.values())[0].get_obj()
     tree = root.read_typetree()
 
     file_name = story_data['file_name']
@@ -520,8 +520,7 @@ def _import_story(story_data):
         return
 
     ruby_path = handle_backup(ruby_hash[0])
-    ruby_bundle = unity.load_asset(ruby_path)
-    ruby_root = list(ruby_bundle.container.values())[0].get_obj()
+    ruby_bundle, ruby_root = unity.load_assetbundle(ruby_path, ruby_hash[0])
     ruby_tree = ruby_root.read_typetree()
 
     if 'DataArray' not in ruby_tree:

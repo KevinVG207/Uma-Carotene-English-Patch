@@ -776,7 +776,6 @@ def send_umalauncher_signal(endpoint, data={}):
     ul_domain = "http://127.0.0.1:3150/"
     url = ul_domain + endpoint
     try:
-        print(url, data)
         requests.post(url, json=data, verify=False, timeout=1)
     except:
         pass
