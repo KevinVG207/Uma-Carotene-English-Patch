@@ -15,6 +15,7 @@ import ui.customize_widget as customize_widget
 from sqlite3 import Error as SqliteError
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QSize
+from ui.error_report import UmaErrorPopup
 
 class PatchStatus(enum.Enum):
     Unpatched = ['Unpatched', 'red']
@@ -262,6 +263,10 @@ class patcher_widget(QWidget):
 
             res = QMessageBox.warning(self, "Not Enough Space", error_message, QMessageBox.Ok)
             self.ignore_filesize = True
+        
+        else:
+            if not settings.has_args():
+                util.run_widget(UmaErrorPopup(title="Error", message="An error occurred while running the patcher.", traceback_str=self.traceback.replace("\n", "<br>")))
 
     def show_settings(self):
         self.settings_widget = customize_widget.customize_widget(self)

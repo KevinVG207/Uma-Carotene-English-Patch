@@ -3,6 +3,7 @@ import json
 import copy
 import os
 import argparse
+import sys
 
 default_settings = {
     'client_version': None,
@@ -171,6 +172,11 @@ class Settings:
         p.add_argument('-c', '--customization', action='store_true', help="Show the customization widget")
 
         return p.parse_args()
+    
+    def has_args(self):
+        if len(sys.argv) > 1:
+            return True
+        return False
 
 settings = Settings()
 
