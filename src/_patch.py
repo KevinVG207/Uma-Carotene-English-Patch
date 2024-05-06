@@ -510,7 +510,7 @@ def _import_story(story_data):
         f.write(asset_bundle.file.save(packer="original"))
     
     # Handle ruby text.
-    ruby_file_name = file_name.replace("storytimeline", "ast_ruby")
+    ruby_file_name = file_name.replace("storytimeline", "ast_ruby").replace("hometimeline_", "ast_ruby_hometimeline_")
     with util.MetaConnection() as (conn, cursor):
         cursor.execute("SELECT h FROM a WHERE n = ?;", (ruby_file_name,))
         ruby_hash = cursor.fetchone()
@@ -520,15 +520,14 @@ def _import_story(story_data):
         return
 
     ruby_path = handle_backup(ruby_hash[0])
-    ruby_bundle, ruby_root = unity.load_assetbundle(ruby_path, ruby_hash[0])
-    ruby_tree = ruby_root.read_typetree()
+    ruby_bundle, _ = unity.load_assetbundle(ruby_path, ruby_hash[0])
 
-    if 'DataArray' not in ruby_tree:
-        # No ruby text to replace.
-        return
-    ruby_tree['DataArray'] = []
-
-    ruby_root.save_typetree(ruby_tree)
+    for obj in ruby_bundle.assets[0].objects.values():
+        tree = obj.read_typetree()
+        if not tree.get('DataArray'):
+            continue
+        tree['DataArray'] = []
+        obj.save_typetree(tree)
 
     with open(ruby_path, "wb") as f:
         f.write(ruby_bundle.file.save(packer="original"))
