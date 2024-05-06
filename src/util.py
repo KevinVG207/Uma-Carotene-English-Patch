@@ -109,6 +109,8 @@ META_BACKUP_TABLE = TABLE_BACKUP_PREFIX + "a"
 
 DLL_BACKUP_SUFFIX = ".bak"
 
+DMM_CONFIG_PATH = os.path.expandvars("%AppData%\dmmgameplayer5\dmmgame.cnf")
+
 def version_to_string(version):
     return "v" + ".".join(str(v) for v in version)
 
@@ -149,13 +151,15 @@ class GameDatabaseNotFoundException(Exception):
 class NotEnoughSpaceException(Exception):
     pass
 
+class DMMConfigNotFoundException(Exception):
+    pass
+
 def display_critical_message(title, text):
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Critical)
     msg.setText(text)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Ok)
-    msg.button(QMessageBox.Ok).setText("Ok")
     msg.exec_()
 
 def load_json(path):
@@ -413,18 +417,30 @@ def tqdm(*args, **kwargs):
         kwargs['ncols'] = TQDM_NCOLS
     return _tqdm.tqdm(*args, **kwargs)
 
+def raise_dmm_config_not_found(reason):
+    display_critical_message("DMM Game Config Error", f"{reason}<br>Please make sure that all of the following are done:<ul><li>DMM Game Player is installed on this computer.</li><li>Umamusume: Pretty Derby is installed via DMM.</li><li>You have started the game via DMM at least once.</li></ul>Expected config file location:<br>{DMM_CONFIG_PATH}")
+    raise DMMConfigNotFoundException()
+
 def get_game_folder():
-    with open(os.path.expandvars("%AppData%\dmmgameplayer5\dmmgame.cnf"), "r", encoding='utf-8') as f:
+    if not os.path.exists(DMM_CONFIG_PATH):
+        raise_dmm_config_not_found("DMM config file not found.")
+
+    with open(DMM_CONFIG_PATH, "r", encoding='utf-8') as f:
         game_data = json.loads(f.read())
     
     if not game_data or not game_data.get('contents'):
-        return None
+        raise_dmm_config_not_found("DMM config file is empty.")
     
     path = None
     for game in game_data['contents']:
         if game.get('productId') == 'umamusume':
             path = game.get('detail', {}).get('path', None)
             break
+
+    path = None
+
+    if not path:
+        raise_dmm_config_not_found("Umamusume not found in DMM config.")
     
     return path
 

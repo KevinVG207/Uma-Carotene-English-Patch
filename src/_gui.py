@@ -21,6 +21,9 @@ def main():
         version.check_update()
         util.run_widget(patcher_widget)
     except Exception as e:
+        if isinstance(e, util.DMMConfigNotFoundException):
+            return
+
         traceback_str = traceback.format_exc().replace("\n", "<br>")
         util.send_error_signal(traceback_str)
         if not settings.has_args():
