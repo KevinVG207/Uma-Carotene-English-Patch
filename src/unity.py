@@ -16,7 +16,8 @@ def load_assetbundle(path, hash):
     if root is None:
         # Maybe the asset is corrupted.
         # We try downloading it again.
-        util.download_asset(hash, no_progress=True)
+        os.remove(path)
+        util.download_asset(hash, no_progress=True, force=True)
         shutil.copy(path, path + ".bak")
         asset = UnityPy.load(path)
         try:

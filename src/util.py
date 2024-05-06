@@ -477,10 +477,13 @@ def redownload_mdb():
     download_lz4(url, mdb_path)
     print("=== Downloaded latest master.mdb. You may now apply the patch again. ===")
 
-def download_asset(hash, no_progress=False):
+def download_asset(hash, no_progress=False, force=False):
     asset_path = get_asset_path(hash)
     if os.path.exists(asset_path):
-        return
+        if force:
+            os.remove(asset_path)
+        else:
+            return
     
     print_str = f"Downloading asset {hash}"
     if no_progress:
