@@ -437,8 +437,6 @@ def get_game_folder():
             path = game.get('detail', {}).get('path', None)
             break
 
-    path = None
-
     if not path:
         raise_dmm_config_not_found("Umamusume not found in DMM config.")
     
