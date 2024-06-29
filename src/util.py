@@ -111,6 +111,8 @@ DLL_BACKUP_SUFFIX = ".bak"
 
 DMM_CONFIG_PATH = os.path.expandvars("%AppData%\dmmgameplayer5\dmmgame.cnf")
 
+CELLAR_URL = "https://github.com/Hachimi-Hachimi/Cellar/releases/latest/download/dxgi.dll"
+
 def version_to_string(version):
     return "v" + ".".join(str(v) for v in version)
 

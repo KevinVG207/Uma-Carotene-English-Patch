@@ -671,6 +671,20 @@ def check_tlg(config_path):
     return None
 
 
+def cellar_exists(path: str) -> bool:
+    if not os.path.exists(path):
+        return False
+
+    data = r""
+    with open(path, "rb") as f:
+        data = f.read()
+    
+    if b"cellar::windows" in data:
+        return True
+
+    return False
+
+
 def fix_tlg_config(config_path):
     tlg_data = util.load_json(config_path)
     if not 'loadDll' in tlg_data:
@@ -809,6 +823,24 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
 
     else:
         print("TLG not detected/does not need to be moved.")
+    
+
+    # Check for Cellar
+    cellar_path = os.path.join(game_folder, "dxgi.dll")
+
+    if not cellar_exists(cellar_path):
+        # Download cellar
+        if os.path.exists(cellar_path):
+            # Backup what is there
+            print("Backing up existing dxgi.dll")
+            shutil.move(cellar_path, cellar_path + util.DLL_BACKUP_SUFFIX)
+            settings.dxgi_backup = True
+        
+        print("Downloading Cellar.")
+        util.download_file(util.CELLAR_URL, cellar_path)
+        settings.cellar_downloaded = True
+    else:
+        print("Cellar detected. Skipping download.")
 
 
     dll_path = os.path.join(game_folder, dll_name)
@@ -819,6 +851,7 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
         shutil.move(dll_path, bak_path)
     
     settings.dll_name = dll_name
+    print("Downloading Carotenify")
     util.download_file(dll_url, dll_path)
     settings.dll_version = latest_data['tag_name']
 
