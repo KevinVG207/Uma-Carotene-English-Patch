@@ -19,7 +19,8 @@ default_settings = {
     'patch_customization_enabled': False,
     'customization_changed': False,
     'dxgi_backup': False,
-    'cellar_downloaded': False
+    'cellar_downloaded': False,
+    'first_run': True,
 }
 
 class Settings:
@@ -27,6 +28,14 @@ class Settings:
 
     def __init__(self):
         self.args = self._parse_args()
+
+    @property
+    def first_run(self):
+        return self['first_run']
+    
+    @first_run.setter
+    def first_run(self, value):
+        self['first_run'] = value
 
     @property
     def client_version(self):
