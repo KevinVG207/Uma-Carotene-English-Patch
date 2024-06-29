@@ -233,6 +233,31 @@ class patcher_widget(QWidget):
             if rbt.isChecked():
                 dll_name = rbt.text()
                 break
+        
+        if settings.first_run:
+            # Show a disclaimer
+            msgbox = QMessageBox(self)
+            msgbox.setIcon(QMessageBox.Information)
+            msgbox.setWindowTitle("Disclaimer")
+            msgbox.setText("""
+<b>Please read and accept the following:</b><br>
+<br>
+By using Carotene Patcher, you agree to also install <a href="https://github.com/Hachimi-Hachimi/Cellar">Cellar modloader</a> (if not already installed).<br>
+Cellar is not affiliated with Carotene Patcher and is a separate project by a different developer.<br>
+<br>
+Furthermore, know that any modifications to the game are against its Terms of Service.<br>
+The developers/contributors of Carotene English Patch are not responsible for any consequences that may arise from using this patcher.<br>
+Use at your own risk.""")
+
+            msgbox.addButton("Agree && don't show again", QMessageBox.YesRole)
+            no_btn = msgbox.addButton("Cancel", QMessageBox.NoRole)
+            msgbox.setDefaultButton(no_btn)
+
+            msgbox.exec()
+
+            if msgbox.clickedButton() == no_btn:
+                return
+            settings.first_run = False
 
         self.try_start_thread(lambda: self._patch(dll_name), error_handler=self.patch_error)
     
