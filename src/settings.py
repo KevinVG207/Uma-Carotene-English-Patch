@@ -17,7 +17,9 @@ default_settings = {
     'tlg_orig_name': None,
     'patch_customization': {},
     'patch_customization_enabled': False,
-    'customization_changed': False
+    'customization_changed': False,
+    'dxgi_backup': False,
+    'cellar_downloaded': False
 }
 
 class Settings:
@@ -121,6 +123,22 @@ class Settings:
     @customization_changed.setter
     def customization_changed(self, value):
         self['customization_changed'] = value
+    
+    @property
+    def dxgi_backup(self):
+        return self['dxgi_backup']
+
+    @dxgi_backup.setter
+    def dxgi_backup(self, value):
+        self['dxgi_backup'] = value
+    
+    @property
+    def cellar_downloaded(self):
+        return self['cellar_downloaded']
+
+    @cellar_downloaded.setter
+    def cellar_downloaded(self, value):
+        self['cellar_downloaded'] = value
     
     def _load(self):
         # print("Loading settings")

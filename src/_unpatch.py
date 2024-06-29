@@ -74,6 +74,18 @@ def revert_assembly(dl_latest=False):
     else:
         os.remove(translations_path)
 
+    if settings.cellar_downloaded:
+        settings.cellar_downloaded = False
+        dxgi_path = os.path.join(game_folder, "dxgi.dll")
+        if settings.dxgi_backup:
+            print("Restoring previous dxgi.dll")
+            dxgi_bak_path = dxgi_path + util.DLL_BACKUP_SUFFIX
+            shutil.move(dxgi_bak_path, dxgi_path)
+            settings.dxgi_backup = False
+        else:
+            print("Removing Cellar")
+            os.remove(dxgi_path)
+
     if dl_latest:
         dll_name = settings.dll_name
         if dll_name:
