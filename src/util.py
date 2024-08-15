@@ -102,6 +102,9 @@ ASSEMBLY_FOLDER_EDITING = INTERMEDIATE_PREFIX + "assembly\\"
 
 DIFF_FOLDER = TL_PREFIX + "diff\\"
 
+GACHA_COMMENT_TL_PATH = ASSETS_FOLDER + "\\gacha\\comment\\translations.json"
+GACHA_COMMENT_TL_PATH_EDITING = ASSETS_FOLDER_EDITING + "\\gacha\\comment\\translations.json"
+
 TABLE_PREFIX = '_carotene'
 TABLE_BACKUP_PREFIX = TABLE_PREFIX + "_bak_"
 
