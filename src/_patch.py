@@ -684,6 +684,43 @@ def cellar_exists(path: str) -> bool:
 
     return False
 
+def load_cellar_lines(path: str) -> set:
+    lines = set()
+    with open(path, "r", encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            lines.add(line)
+    
+    return lines
+
+def ensure_cellar_txt(dll_path: str, game_folder: str):
+    print("Updating cellar.txt")
+    dll_rel_path = os.path.relpath(dll_path, game_folder)
+    cellar_path = os.path.join(game_folder, "cellar.txt")
+
+    cellar_lines = load_cellar_lines(cellar_path)
+
+    if dll_rel_path not in cellar_lines:
+        cellar_lines.add(dll_rel_path)
+    
+    with open(cellar_path, "w", encoding='utf-8') as f:
+        f.write("\n".join(cellar_lines))
+
+def remove_from_cellar_txt(dll_path: str, game_folder: str):
+    print("Removing from cellar.txt")
+    dll_rel_path = os.path.relpath(dll_path, game_folder)
+    cellar_path = os.path.join(game_folder, "cellar.txt")
+
+    cellar_lines = load_cellar_lines(cellar_path)
+
+    if dll_rel_path in cellar_lines:
+        cellar_lines.remove(dll_rel_path)
+    
+    with open(cellar_path, "w", encoding='utf-8') as f:
+        f.write("\n".join(cellar_lines))
+
 
 def fix_tlg_config(config_path):
     tlg_data = util.load_json(config_path)
@@ -750,7 +787,7 @@ def import_assembly():
 
     # print("Done.")
 
-def download_dll(dl_latest=False, dll_name='version.dll'):
+def download_dll(dl_latest=False, dll_name='carotenify.dll'):
     if not dl_latest:
         print("Not downloading latest dll.")
         return
@@ -853,6 +890,12 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
     settings.dll_name = dll_name
     print("Downloading Carotenify")
     util.download_file(dll_url, dll_path)
+
+
+    # Update Cellar txt
+    ensure_cellar_txt(dll_path, game_folder)
+
+
     settings.dll_version = latest_data['tag_name']
 
 def upgrade():
@@ -936,7 +979,7 @@ def upgrade():
         print("Upgrade complete.")
 
 
-def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
+def main(dl_latest=False, dll_name='carotenify.dll', ignore_filesize=False):
     print("=== Patching ===")
 
     if not os.path.exists(util.MDB_PATH):

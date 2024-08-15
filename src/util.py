@@ -24,8 +24,6 @@ from multiprocessing.pool import Pool
 import re
 import hashlib
 
-DLL_NAMES = ['version.dll', 'umpdc.dll', 'xinput1_3.dll']
-
 hyphen_dict = pyphen.Pyphen(lang='en_US')
 
 relative_dir = os.path.abspath(os.getcwd())

@@ -101,6 +101,8 @@ def revert_assembly(dl_latest=False):
             if os.path.exists(bak_path):
                 print(f"Restoring previous {dll_name}")
                 shutil.move(bak_path, dll_path)
+            
+            _patch.remove_from_cellar_txt(dll_path, game_folder)
         
         tlg_config_bak = settings.tlg_config_bak
         if tlg_config_bak:

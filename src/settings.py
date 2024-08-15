@@ -193,8 +193,8 @@ class Settings:
     def _parse_args(self):
         p = argparse.ArgumentParser()
         p.add_argument('-U', '--update', action='store_true', help="Auto-update the patcher")
-        p.add_argument('-p', '--patch', help="Auto-install the patch if needed with DLL name as argument")
-        p.add_argument('-f', '--force', help="Force install the patch even if there's no update. DLL name as argument")
+        p.add_argument('-p', '--patch', action='store_true', help="Auto-install the patch if needed with DLL name as argument")
+        p.add_argument('-f', '--force', action='store_true', help="Force install the patch even if there's no update. DLL name as argument")
         p.add_argument('-u', '--unpatch', action='store_true', help="Uninstall the patch")
         p.add_argument('-c', '--customization', action='store_true', help="Show the customization widget")
 
