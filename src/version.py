@@ -10,7 +10,7 @@ import sys
 from urllib.parse import urlparse
 from settings import settings
 
-VERSION = (24, 8, 16, 0)
+VERSION = (24, 8, 16, 1)
 
 def version_to_string(version):
     return "v" + ".".join(str(v) for v in version)
