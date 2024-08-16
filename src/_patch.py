@@ -677,6 +677,12 @@ def check_carrotjuicer(game_folder):
         'xinput1_3.dll',
         'umpdc.dll'
     ]
+
+    cellar_txt_path = os.path.join(game_folder, "cellar.txt")
+    if os.path.exists(cellar_txt_path):
+        cellar_mods = load_cellar_lines(cellar_txt_path)
+        paths += list(cellar_mods)
+
     paths = [os.path.join(game_folder, p) for p in paths]
 
     try:
