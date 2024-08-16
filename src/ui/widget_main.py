@@ -80,11 +80,11 @@ class patcher_widget(QWidget):
         if settings.args.patch:
             dll_name = settings.args.patch
             if self.patch_status != PatchStatus.Patched or dll_name != settings.dll_name:
-                self._patch(settings.args.patch)
+                self._patch()
             util.send_finish_signal()
             sys.exit()
         if settings.args.force:
-            self._patch(settings.args.force)
+            self._patch()
             util.send_finish_signal()
             sys.exit()
         if settings.args.unpatch:
@@ -220,20 +220,13 @@ class patcher_widget(QWidget):
         self.thread_.finished.connect(self.update_patch_status)
         self.thread_.start()
 
-    def _patch(self, dll_name):
+    def _patch(self):
         if settings.customization_changed:
             _unpatch.main(dl_latest=True)
             settings.customization_changed = False
-        _patch.main(dl_latest=True, dll_name=dll_name, ignore_filesize=self.ignore_filesize)
+        _patch.main(dl_latest=True, ignore_filesize=self.ignore_filesize)
 
     def patch(self):
-        # Handle DLL choice
-        dll_name = util.DLL_NAMES[0]
-        for rbt in self.dll_buttons:
-            if rbt.isChecked():
-                dll_name = rbt.text()
-                break
-        
         if settings.first_run:
             # Show a disclaimer
             msgbox = QMessageBox(self)
@@ -259,7 +252,7 @@ Use at your own risk.""")
                 return
             settings.first_run = False
 
-        self.try_start_thread(lambda: self._patch(dll_name), error_handler=self.patch_error)
+        self.try_start_thread(lambda: self._patch(), error_handler=self.patch_error)
     
     def _unpatch(self):
         _unpatch.main(dl_latest=True)
@@ -338,67 +331,6 @@ Use at your own risk.""")
         self.lbl_patch_status_3 = QLabel(self)
         self.lbl_patch_status_3.setObjectName(u"lbl_patch_status_3")
         self.lbl_patch_status_3.setGeometry(QRect(140, 40, 311, 21))
-
-
-        self.verticalLayoutWidget = QWidget(self)
-        self.verticalLayoutWidget.setObjectName(u"verticalLayoutWidget")
-        self.verticalLayoutWidget.setGeometry(QRect(10, 0, 121, 120))
-        self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
-        self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.lbl_dll = QLabel(self.verticalLayoutWidget)
-        self.lbl_dll.setObjectName(u"lbl_dll")
-        self.lbl_dll.setText(u"DLL name:<br>(Change if you<br>experience issues)")
-
-        self.verticalLayout.addWidget(self.lbl_dll)
-
-        self.dll_buttons = []
-
-        for dll_name in util.DLL_NAMES:
-            rbt = QRadioButton(self.verticalLayoutWidget)
-            rbt.setObjectName(f"rbt_{dll_name}")
-            rbt.setText(dll_name)
-            self.dll_buttons.append(rbt)
-
-            self.verticalLayout.addWidget(rbt)
-
-        # self.rbt_version = QRadioButton(self.verticalLayoutWidget)
-        # self.rbt_version.setObjectName(u"rbt_version")
-        # self.rbt_version.setText(u"version.dll")
-
-        # self.verticalLayout.addWidget(self.rbt_version)
-
-        # self.rbt_umpdc = QRadioButton(self.verticalLayoutWidget)
-        # self.rbt_umpdc.setObjectName(u"rbt_umpdc")
-        # self.rbt_umpdc.setText(u"umpdc.dll")
-
-        # self.verticalLayout.addWidget(self.rbt_umpdc)
-
-        # self.rbt_xinput = QRadioButton(self.verticalLayoutWidget)
-        # self.rbt_xinput.setObjectName(u"rbt_xinput")
-        # self.rbt_xinput.setText(u"xinput1_3.dll")
-
-        # self.verticalLayout.addWidget(self.rbt_xinput)
-
-        # self.rbt_uxtheme = QRadioButton(self.verticalLayoutWidget)
-        # self.rbt_uxtheme.setObjectName(u"rbt_uxtheme")
-        # self.rbt_uxtheme.setText(u"uxtheme.dll")
-
-        # self.verticalLayout.addWidget(self.rbt_uxtheme)
-
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-
-        self.verticalLayout.addItem(self.verticalSpacer)
-
-        # Handle DLL choice
-        dll_name = settings.dll_name
-        if not dll_name:
-            dll_name = util.DLL_NAMES[0]
-        for rbt in self.dll_buttons:
-            if rbt.text() == dll_name:
-                rbt.setChecked(True)
-                break
-
 
         self.plainTextEdit = QPlainTextEdit(self)
         self.plainTextEdit.setObjectName(u"plainTextEdit")

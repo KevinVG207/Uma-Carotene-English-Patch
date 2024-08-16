@@ -670,6 +670,26 @@ def check_tlg(config_path):
     
     return None
 
+def check_carrotjuicer(game_folder):
+    paths = [
+        'version.dll',
+        'uxtheme.dll',
+        'xinput1_3.dll',
+        'umpdc.dll'
+    ]
+    paths = [os.path.join(game_folder, p) for p in paths]
+
+    try:
+        for p in paths:
+            if os.path.exists(p):
+                with open(p, "rb") as f:
+                    data = f.read()
+                    if b"EXNOA-CarrotJuicer" in data:
+                        return os.path.basename(p)
+    except:
+        return None
+    
+    return None
 
 def cellar_exists(path: str) -> bool:
     if not os.path.exists(path):
@@ -683,6 +703,46 @@ def cellar_exists(path: str) -> bool:
         return True
 
     return False
+
+def load_cellar_lines(path: str) -> set:
+    lines = set()
+    if not os.path.exists(path):
+        return lines
+
+    with open(path, "r", encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            lines.add(line)
+    
+    return lines
+
+def ensure_cellar_txt(dll_path: str, game_folder: str):
+    print("Updating cellar.txt")
+    dll_rel_path = os.path.relpath(dll_path, game_folder)
+    cellar_path = os.path.join(game_folder, "cellar.txt")
+
+    cellar_lines = load_cellar_lines(cellar_path)
+
+    if dll_rel_path not in cellar_lines:
+        cellar_lines.add(dll_rel_path)
+    
+    with open(cellar_path, "w", encoding='utf-8') as f:
+        f.write("\n".join(cellar_lines))
+
+def remove_from_cellar_txt(dll_path: str, game_folder: str):
+    print("Removing from cellar.txt")
+    dll_rel_path = os.path.relpath(dll_path, game_folder)
+    cellar_path = os.path.join(game_folder, "cellar.txt")
+
+    cellar_lines = load_cellar_lines(cellar_path)
+
+    if dll_rel_path in cellar_lines:
+        cellar_lines.remove(dll_rel_path)
+    
+    with open(cellar_path, "w", encoding='utf-8') as f:
+        f.write("\n".join(cellar_lines))
 
 
 def fix_tlg_config(config_path):
@@ -750,7 +810,7 @@ def import_assembly():
 
     # print("Done.")
 
-def download_dll(dl_latest=False, dll_name='version.dll'):
+def download_dll(dl_latest=False, dll_name='carotenify.dll'):
     if not dl_latest:
         print("Not downloading latest dll.")
         return
@@ -770,7 +830,7 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
 
     dll_url = None
     for asset in latest_data['assets']:
-        if asset['name'] == 'version.dll':
+        if asset['name'] in ('version.dll', 'carotenify.dll'):
             dll_url = asset['browser_download_url']
             break
     
@@ -824,25 +884,34 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
     else:
         print("TLG not detected/does not need to be moved.")
     
+    # Remove carrotjuicer
+    cj_dll_name = check_carrotjuicer(game_folder)
+    if cj_dll_name:
+        print("CarrotJuicer detected.")
+        print("Backing up CarrotJuicer.")
+        cj_dll_path = os.path.join(game_folder, cj_dll_name)
+        cj_new_path = cj_dll_path + util.DLL_BACKUP_SUFFIX
 
-    # Check for Cellar
+        shutil.move(cj_dll_path, cj_new_path)
+
+        settings.cj_orig_name = cj_dll_name
+
+
+    # Download Cellar
     cellar_path = os.path.join(game_folder, "dxgi.dll")
+    cellar_bak_path = cellar_path + util.DLL_BACKUP_SUFFIX
 
-    if not cellar_exists(cellar_path):
-        # Download cellar
-        if os.path.exists(cellar_path):
-            # Backup what is there
+    if os.path.exists(cellar_path):
+        if not os.path.exists(cellar_bak_path):
             print("Backing up existing dxgi.dll")
-            shutil.move(cellar_path, cellar_path + util.DLL_BACKUP_SUFFIX)
+            shutil.move(cellar_path, cellar_bak_path)
             settings.dxgi_backup = True
-        
-        print("Downloading Cellar.")
-        util.download_file(util.CELLAR_URL, cellar_path)
-        settings.cellar_downloaded = True
-    else:
-        print("Cellar detected. Skipping download.")
+    
+    print("Downloading Cellar")
+    util.download_file(util.CELLAR_URL, cellar_path)
+    settings.cellar_downloaded = True
 
-
+    # Download Carotenify
     dll_path = os.path.join(game_folder, dll_name)
     bak_path = dll_path + util.DLL_BACKUP_SUFFIX
 
@@ -853,6 +922,12 @@ def download_dll(dl_latest=False, dll_name='version.dll'):
     settings.dll_name = dll_name
     print("Downloading Carotenify")
     util.download_file(dll_url, dll_path)
+
+
+    # Update Cellar txt
+    ensure_cellar_txt(dll_path, game_folder)
+
+
     settings.dll_version = latest_data['tag_name']
 
 def upgrade():
@@ -936,7 +1011,7 @@ def upgrade():
         print("Upgrade complete.")
 
 
-def main(dl_latest=False, dll_name='version.dll', ignore_filesize=False):
+def main(dl_latest=False, dll_name='carotenify.dll', ignore_filesize=False):
     print("=== Patching ===")
 
     if not os.path.exists(util.MDB_PATH):

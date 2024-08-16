@@ -101,6 +101,8 @@ def revert_assembly(dl_latest=False):
             if os.path.exists(bak_path):
                 print(f"Restoring previous {dll_name}")
                 shutil.move(bak_path, dll_path)
+            
+            _patch.remove_from_cellar_txt(dll_path, game_folder)
         
         tlg_config_bak = settings.tlg_config_bak
         if tlg_config_bak:
@@ -120,6 +122,17 @@ def revert_assembly(dl_latest=False):
                 shutil.move(tlg_new_path, tlg_orig_path)
 
             settings.tlg_orig_name = None
+        
+        cj_orig_name = settings.cj_orig_name
+        if cj_orig_name:
+            cj_orig_path = os.path.join(game_folder, cj_orig_name)
+            cj_bak_path = cj_orig_path + util.DLL_BACKUP_SUFFIX
+
+            if os.path.exists(cj_bak_path):
+                print(f"Reverting CarrotJuicer to {cj_orig_path}")
+                shutil.move(cj_bak_path, cj_orig_path)
+
+            settings.cj_orig_name = None
 
     else:
         print(f"Keeping dll")
