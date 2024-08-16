@@ -21,6 +21,7 @@ default_settings = {
     'dxgi_backup': False,
     'cellar_downloaded': False,
     'first_run': True,
+    'cj_orig_name': None,
 }
 
 class Settings:
@@ -148,6 +149,14 @@ class Settings:
     @cellar_downloaded.setter
     def cellar_downloaded(self, value):
         self['cellar_downloaded'] = value
+    
+    @property
+    def cj_orig_name(self):
+        return self['cj_orig_name']
+    
+    @cj_orig_name.setter
+    def cj_orig_name(self, value):
+        self['cj_orig_name'] = value
     
     def _load(self):
         # print("Loading settings")
