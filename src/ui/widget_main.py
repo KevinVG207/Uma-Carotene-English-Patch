@@ -91,6 +91,8 @@ class patcher_widget(QWidget):
             self._unpatch()
             util.send_finish_signal()
             sys.exit()
+        
+        self.show_deprecation_warning()
 
         self.raise_()
     
@@ -349,3 +351,17 @@ Use at your own risk.""")
         self.btn_settings.setGeometry(QRect(370, 10, 83, 31))
         self.btn_settings.setText(u"Customization")
         self.btn_settings.clicked.connect(self.show_settings)
+
+    def show_deprecation_warning(self):
+        # Warning box
+        msgbox = QMessageBox(self)
+        msgbox.setIcon(QMessageBox.Warning)
+        msgbox.findChild(QLabel).setOpenExternalLinks(True)
+        msgbox.setWindowTitle("Carotene end of life")
+        msgbox.setText("""
+<h2>Support for Carotene English Patch has ended</h2>
+<p>Carotene English Patch will no longer receive updates. Thank you for using my mod!</p>
+<p>Carotene has merged with <b><a href="https://hachimi.leadrdrk.com/">Hachimi</a></b> and translation updates will continue there.</p>
+<p><b>Please unpatch Carotene before installing Hachimi!</b></p>""")
+        msgbox.addButton("OK", QMessageBox.AcceptRole)
+        msgbox.exec()
