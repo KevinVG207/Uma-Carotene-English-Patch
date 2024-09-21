@@ -34,7 +34,7 @@ def check_update():
         # We're up to date
         return
     
-    if not settings.args.update:
+    if not settings.args.update and not settings.args.unpatch:
         choice = [False]
         util.run_widget(update_widget, release_version=latest_release['tag_name'], choice=choice)
         choice = choice[-1]
