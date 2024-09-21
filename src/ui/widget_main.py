@@ -362,6 +362,7 @@ Use at your own risk.""")
 <h2>Support for Carotene English Patch has ended</h2>
 <p>Carotene English Patch will no longer receive updates. Thank you for using my mod!</p>
 <p>Carotene has merged with <b><a href="https://hachimi.leadrdrk.com/">Hachimi</a></b> and translation updates will continue there.</p>
+<p>A bit more info on the merge and the end of Carotene can be found on <a href="https://umapyoi.net/carotene-english-patch">Carotene's webpage.</a></p>
 <p><b>Please unpatch Carotene before installing Hachimi!</b></p>""")
         msgbox.addButton("OK", QMessageBox.AcceptRole)
         msgbox.exec()
